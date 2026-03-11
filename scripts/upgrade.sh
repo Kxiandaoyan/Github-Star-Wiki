@@ -8,6 +8,7 @@ BRANCH="${1:-main}"
 BACKUP_DIR="$ROOT_DIR/backups"
 DB_PATH="$ROOT_DIR/data/star-wiki.db"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+STASH_NAME="upgrade-$TIMESTAMP"
 
 log() {
   printf '[upgrade] %s\n' "$1"
@@ -28,10 +29,6 @@ require_command node
 
 cd "$ROOT_DIR"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  fail "working tree is not clean; commit or stash local changes before upgrading"
-fi
-
 log "repository: $ROOT_DIR"
 log "remote: $REMOTE"
 log "branch: $BRANCH"
@@ -46,16 +43,12 @@ else
   log "database file not found, skipping backup"
 fi
 
-log "fetching latest code"
-git fetch "$REMOTE" "$BRANCH"
-
-CURRENT_BRANCH="$(git branch --show-current)"
-if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
-  log "switching branch from $CURRENT_BRANCH to $BRANCH"
-  git checkout "$BRANCH"
+if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  log "working tree is not clean, stashing local changes"
+  git stash push --include-untracked -m "$STASH_NAME" >/dev/null
 fi
 
-log "pulling latest commits"
+log "pulling latest code from $REMOTE/$BRANCH"
 git pull --ff-only "$REMOTE" "$BRANCH"
 
 log "installing dependencies with npm ci"
@@ -68,4 +61,6 @@ log "building application"
 npm run build
 
 log "upgrade completed successfully"
+log "database is preserved"
 log "application was not started; start it with your own process manager"
+log "if needed, inspect stashed local changes with: git stash list"
