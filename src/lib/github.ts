@@ -1,8 +1,20 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import db from './db';
 
 const GITHUB_USERNAME = process.env.GITHUB_USERNAME;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_RETRY_ATTEMPTS = 2;
+const GITHUB_RETRY_BASE_DELAY_MS = 1000;
+const GITHUB_CACHE_TTL_MS = 60 * 60 * 1000;
+const GITHUB_STAR_SYNC_BATCH_SIZE = 20;
+const GITHUB_REQUEST_MIN_INTERVAL_MS = Math.max(
+  0,
+  Number.parseInt(process.env.GITHUB_REQUEST_MIN_INTERVAL_MS || '350', 10) || 350
+);
+const GITHUB_FILE_FETCH_CONCURRENCY = Math.max(
+  1,
+  Number.parseInt(process.env.GITHUB_FILE_FETCH_CONCURRENCY || '2', 10) || 2
+);
 
 const githubApi = axios.create({
   baseURL: 'https://api.github.com',
@@ -102,6 +114,202 @@ interface GitHubUserProfile {
   blog: string | null;
 }
 
+interface GitHubCacheRow {
+  value: string;
+  fetched_at: string;
+  expires_at: string;
+}
+
+interface CachedValue<T> {
+  value: T;
+  fetchedAt: string;
+  expiresAt: string;
+  isFresh: boolean;
+}
+
+interface SyncStarredReposOptions {
+  forceRefresh?: boolean;
+}
+
+interface SyncStarredReposResult {
+  total: number;
+  new: number;
+  updated: number;
+  fetched?: number;
+  fromCache?: boolean;
+  cachedAt?: string;
+  syncedAt?: string;
+}
+
+let githubRequestQueue = Promise.resolve();
+let nextGitHubRequestAt = 0;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function toIsoTimestamp(date: Date) {
+  return date.toISOString();
+}
+
+function getGitHubCacheKey(scope: 'profile' | 'starred-sync') {
+  return `${scope}:${GITHUB_USERNAME || 'authenticated-user'}`;
+}
+
+function readCachedValue<T>(cacheKey: string): CachedValue<T> | null {
+  const row = db.prepare(`
+    SELECT value, fetched_at, expires_at
+    FROM github_cache
+    WHERE cache_key = ?
+  `).get(cacheKey) as GitHubCacheRow | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  try {
+    return {
+      value: JSON.parse(row.value) as T,
+      fetchedAt: row.fetched_at,
+      expiresAt: row.expires_at,
+      isFresh: Date.parse(row.expires_at) > Date.now(),
+    };
+  } catch {
+    db.prepare('DELETE FROM github_cache WHERE cache_key = ?').run(cacheKey);
+    return null;
+  }
+}
+
+function writeCachedValue(cacheKey: string, value: unknown, ttlMs = GITHUB_CACHE_TTL_MS) {
+  const fetchedAt = new Date();
+  const expiresAt = new Date(fetchedAt.getTime() + ttlMs);
+
+  db.prepare(`
+    INSERT INTO github_cache (cache_key, value, fetched_at, expires_at)
+    VALUES (@cache_key, @value, @fetched_at, @expires_at)
+    ON CONFLICT(cache_key) DO UPDATE SET
+      value = excluded.value,
+      fetched_at = excluded.fetched_at,
+      expires_at = excluded.expires_at
+  `).run({
+    cache_key: cacheKey,
+    value: JSON.stringify(value),
+    fetched_at: toIsoTimestamp(fetchedAt),
+    expires_at: toIsoTimestamp(expiresAt),
+  });
+}
+
+async function scheduleGitHubRequest<T>(operation: () => Promise<T>) {
+  const run = async () => {
+    const now = Date.now();
+    const waitMs = Math.max(0, nextGitHubRequestAt - now);
+    nextGitHubRequestAt = Math.max(now, nextGitHubRequestAt) + GITHUB_REQUEST_MIN_INTERVAL_MS;
+
+    if (waitMs > 0) {
+      await sleep(waitMs);
+    }
+
+    return operation();
+  };
+
+  const scheduled = githubRequestQueue.then(run, run);
+  githubRequestQueue = scheduled.then(() => undefined, () => undefined);
+  return scheduled;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  iteratee: (item: T, index: number) => Promise<R>
+) {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await iteratee(items[index], index);
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+function getRetryAfterMs(error: AxiosError) {
+  const retryAfter = error.response?.headers?.['retry-after'];
+
+  if (typeof retryAfter === 'string') {
+    const seconds = Number.parseInt(retryAfter, 10);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return seconds * 1000;
+    }
+
+    const retryAt = Date.parse(retryAfter);
+    if (!Number.isNaN(retryAt)) {
+      return Math.max(0, retryAt - Date.now());
+    }
+  }
+
+  return null;
+}
+
+function isTransientGitHubError(error: unknown) {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+  const code = error.code?.toUpperCase();
+
+  return status === 429
+    || (typeof status === 'number' && status >= 500)
+    || code === 'ECONNABORTED'
+    || code === 'ECONNRESET'
+    || code === 'ENOTFOUND'
+    || code === 'ETIMEDOUT';
+}
+
+function getGitHubRetryDelayMs(error: unknown, attempt: number) {
+  if (axios.isAxiosError(error)) {
+    const retryAfterMs = getRetryAfterMs(error);
+    if (retryAfterMs !== null) {
+      return retryAfterMs;
+    }
+  }
+
+  return GITHUB_RETRY_BASE_DELAY_MS * (attempt + 1);
+}
+
+async function requestGitHub<T>(
+  client: AxiosInstance,
+  url: string,
+  config?: AxiosRequestConfig,
+  retries = GITHUB_RETRY_ATTEMPTS
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await scheduleGitHubRequest(() => client.get<T>(url, config));
+    } catch (error) {
+      lastError = error;
+
+      if (!isTransientGitHubError(error) || attempt === retries) {
+        throw error;
+      }
+
+      await sleep(getGitHubRetryDelayMs(error, attempt));
+    }
+  }
+
+  throw lastError;
+}
+
 function getGitHubErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status;
@@ -131,7 +339,7 @@ function getGitHubErrorMessage(error: unknown, fallback: string) {
 
 async function getRepositoryMetadata(fullName: string): Promise<GitHubRepo> {
   try {
-    const response = await githubApi.get<GitHubRepo>(`/repos/${fullName}`);
+    const response = await requestGitHub<GitHubRepo>(githubApi, `/repos/${fullName}`);
     return response.data;
   } catch (error) {
     throw new Error(getGitHubErrorMessage(error, `Failed to load repository metadata for ${fullName}`));
@@ -140,30 +348,53 @@ async function getRepositoryMetadata(fullName: string): Promise<GitHubRepo> {
 
 export async function fetchGitHubProfile() {
   const fallbackLogin = GITHUB_USERNAME || null;
+  const cacheKey = getGitHubCacheKey('profile');
+  const cachedProfile = readCachedValue<GitHubUserProfile>(cacheKey);
 
   if (!GITHUB_TOKEN && !GITHUB_USERNAME) {
     return null;
   }
 
+  if (cachedProfile?.isFresh) {
+    return cachedProfile.value;
+  }
+
   try {
     const endpoint = GITHUB_TOKEN ? '/user' : `/users/${GITHUB_USERNAME}`;
-    const response = await githubApi.get<GitHubUserProfile>(endpoint);
+    const response = await requestGitHub<GitHubUserProfile>(githubApi, endpoint);
+    writeCachedValue(cacheKey, response.data);
     return response.data;
   } catch (error) {
-    console.error(getGitHubErrorMessage(error, `Failed to load GitHub profile for ${fallbackLogin || 'user'}`));
+    const message = getGitHubErrorMessage(error, `Failed to load GitHub profile for ${fallbackLogin || 'user'}`);
+
+    if (cachedProfile) {
+      console.warn(`${message}. Falling back to cached profile from ${cachedProfile.fetchedAt}.`);
+      return cachedProfile.value;
+    }
+
+    if (isTransientGitHubError(error)) {
+      console.warn(message);
+    } else {
+      console.error(message);
+    }
+
     return null;
   }
 }
 
 async function getReadmeContent(fullName: string): Promise<string> {
   try {
-    const response = await githubApi.get<string>(`/repos/${fullName}/readme`, {
-      headers: {
-        Accept: 'application/vnd.github.raw+json',
-      },
-      responseType: 'text',
-      transformResponse: [(data) => data],
-    });
+    const response = await requestGitHub<string>(
+      githubApi,
+      `/repos/${fullName}/readme`,
+      {
+        headers: {
+          Accept: 'application/vnd.github.raw+json',
+        },
+        responseType: 'text',
+        transformResponse: [(data) => data],
+      }
+    );
 
     return typeof response.data === 'string' ? response.data : '';
   } catch (error) {
@@ -178,13 +409,17 @@ async function getReadmeContent(fullName: string): Promise<string> {
 
 async function getFileContent(fullName: string, filePath: string): Promise<string> {
   try {
-    const response = await githubApi.get<string>(`/repos/${fullName}/contents/${filePath}`, {
-      headers: {
-        Accept: 'application/vnd.github.raw+json',
-      },
-      responseType: 'text',
-      transformResponse: [(data) => data],
-    });
+    const response = await requestGitHub<string>(
+      githubApi,
+      `/repos/${fullName}/contents/${filePath}`,
+      {
+        headers: {
+          Accept: 'application/vnd.github.raw+json',
+        },
+        responseType: 'text',
+        transformResponse: [(data) => data],
+      }
+    );
 
     return typeof response.data === 'string' ? response.data : '';
   } catch (error) {
@@ -227,7 +462,8 @@ function buildDirectoryStructure(tree: TreeItem[], maxDepth = 3) {
 
 async function getRepositoryTree(fullName: string, defaultBranch: string) {
   try {
-    const response = await githubApi.get<{ tree: TreeItem[]; truncated: boolean }>(
+    const response = await requestGitHub<{ tree: TreeItem[]; truncated: boolean }>(
+      githubApi,
       `/repos/${fullName}/git/trees/${encodeURIComponent(defaultBranch)}?recursive=1`
     );
 
@@ -351,11 +587,13 @@ export async function fetchRepositoryContext(fullName: string): Promise<Reposito
 
   const structure = buildDirectoryStructure(treeResponse.tree) + (treeResponse.truncated ? '\n...' : '');
   const interestingFiles = selectInterestingFiles(treeResponse.tree);
-  const fileContents = await Promise.all(
-    interestingFiles.map(async (file) => ({
+  const fileContents = await mapWithConcurrency(
+    interestingFiles,
+    GITHUB_FILE_FETCH_CONCURRENCY,
+    async (file) => ({
       path: file.path,
       content: await getFileContent(fullName, file.path),
-    }))
+    })
   );
 
   const packageFacts = fileContents.find((file) => file.path === 'package.json')?.content || '';
@@ -373,41 +611,43 @@ export async function fetchRepositoryContext(fullName: string): Promise<Reposito
   };
 }
 
-export async function syncStarredRepos() {
+export async function syncStarredRepos(options: SyncStarredReposOptions = {}): Promise<SyncStarredReposResult> {
   if (!GITHUB_USERNAME && !GITHUB_TOKEN) {
     throw new Error('GITHUB_USERNAME or GITHUB_TOKEN must be configured.');
+  }
+
+  const cacheKey = getGitHubCacheKey('starred-sync');
+  const cachedSync = readCachedValue<{ total: number }>(cacheKey);
+  const { forceRefresh = false } = options;
+
+  if (!forceRefresh && cachedSync?.isFresh) {
+    return {
+      total: cachedSync.value.total,
+      new: 0,
+      updated: 0,
+      fetched: cachedSync.value.total,
+      fromCache: true,
+      cachedAt: cachedSync.fetchedAt,
+    };
   }
 
   console.log(`Syncing starred repositories for ${GITHUB_USERNAME || 'authenticated user'}...`);
 
   try {
-    const allRepos: StarredRepoResponse[] = [];
-    let page = 1;
-    const perPage = 100;
     const endpoint = GITHUB_TOKEN ? '/user/starred' : `/users/${GITHUB_USERNAME}/starred`;
-
-    while (true) {
-      const response = await githubStarApi.get<StarredRepoResponse[]>(endpoint, {
+    const response = await requestGitHub<StarredRepoResponse[]>(
+      githubStarApi,
+      endpoint,
+      {
         params: {
-          per_page: perPage,
-          page,
+          per_page: GITHUB_STAR_SYNC_BATCH_SIZE,
+          page: 1,
           sort: 'created',
           direction: 'desc',
         },
-      });
-
-      const repos = response.data;
-      if (repos.length === 0) {
-        break;
       }
-
-      allRepos.push(...repos);
-      page += 1;
-
-      if (allRepos.length >= 10000) {
-        break;
-      }
-    }
+    );
+    const latestRepos = response.data;
 
     const upsertProject = db.prepare(`
       INSERT INTO projects (
@@ -479,14 +719,34 @@ export async function syncStarredRepos() {
       }
     });
 
-    transaction(allRepos);
+    transaction(latestRepos);
+
+    const syncedAt = toIsoTimestamp(new Date());
+    writeCachedValue(cacheKey, { total: latestRepos.length });
 
     return {
-      total: allRepos.length,
+      total: latestRepos.length,
       new: newCount,
       updated: updatedCount,
+      fetched: latestRepos.length,
+      fromCache: false,
+      syncedAt,
     };
   } catch (error) {
+    if (cachedSync && isTransientGitHubError(error)) {
+      const message = getGitHubErrorMessage(error, 'GitHub sync failed');
+      console.warn(`${message}. Falling back to cached sync state from ${cachedSync.fetchedAt}.`);
+
+      return {
+        total: cachedSync.value.total,
+        new: 0,
+        updated: 0,
+        fetched: cachedSync.value.total,
+        fromCache: true,
+        cachedAt: cachedSync.fetchedAt,
+      };
+    }
+
     console.error('GitHub sync failed:', error);
     throw error;
   }

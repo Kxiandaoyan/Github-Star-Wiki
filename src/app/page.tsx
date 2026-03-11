@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { ArrowRight, ExternalLink, Heart, SearchCode, Star, Users } from 'lucide-react';
-import { BackgroundParticles } from '@/components/BackgroundParticles';
 import { HeroCodeBackdrop } from '@/components/HeroCodeBackdrop';
 import { LanguageFilter } from '@/components/LanguageFilter';
 import { ProjectCard } from '@/components/ProjectCard';
@@ -17,6 +17,10 @@ import db from '@/lib/db';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const HOME_PAGE_SIZE = 21;
 const ACTIVITY_WEEKS = 24;
+const BackgroundParticles = dynamic(
+  () => import('@/components/BackgroundParticles').then((mod) => mod.BackgroundParticles),
+  { ssr: false }
+);
 
 export const metadata: Metadata = {
   title: 'GitHub Star 项目搜索与知识卡片',

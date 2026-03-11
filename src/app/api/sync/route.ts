@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { syncStarredRepos } from '@/lib/github';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const result = await syncStarredRepos();
+    const forceRefresh = ['1', 'true'].includes(request.nextUrl.searchParams.get('force') || '');
+    const result = await syncStarredRepos({ forceRefresh });
     return NextResponse.json({
       success: true,
       ...result,

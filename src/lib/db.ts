@@ -157,6 +157,15 @@ export function initDatabase() {
     )
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS github_cache (
+      cache_key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      fetched_at DATETIME NOT NULL,
+      expires_at DATETIME NOT NULL
+    )
+  `);
+
   createProjectsSearchObjects();
 
   if (!hasColumn('task_queue', 'available_at')) {
@@ -184,6 +193,7 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_projects_stars ON projects(stars DESC);
     CREATE INDEX IF NOT EXISTS idx_projects_starred_at ON projects(starred_at DESC);
     CREATE INDEX IF NOT EXISTS idx_projects_synced_at ON projects(synced_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_github_cache_expires_at ON github_cache(expires_at);
     CREATE INDEX IF NOT EXISTS idx_task_queue_status_priority ON task_queue(status, priority);
     CREATE INDEX IF NOT EXISTS idx_task_queue_status_available_priority ON task_queue(status, available_at, priority);
     CREATE INDEX IF NOT EXISTS idx_wiki_documents_project_id ON wiki_documents(project_id);
