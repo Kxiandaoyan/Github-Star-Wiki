@@ -1,5 +1,13 @@
 # Star Wiki
 
+## 页面预览
+
+<p align="center">
+  <img src="./png/Snipaste_2026-03-11_19-45-02.png" alt="Star Wiki 首页预览 1" width="32%" />
+  <img src="./png/Snipaste_2026-03-11_19-45-31.png" alt="Star Wiki 首页预览 2" width="32%" />
+  <img src="./png/Snipaste_2026-03-11_19-45-42.png" alt="Star Wiki 项目页预览" width="32%" />
+</p>
+
 Star Wiki 是一个把你的 GitHub Star 列表整理成“可搜索项目库”的网站。
 
 很多人 Star 了很多仓库，但过一段时间以后，往往只记得“我好像收藏过一个这个方向的项目”，却很难再快速找回来。这个项目就是为了解决这个问题：
