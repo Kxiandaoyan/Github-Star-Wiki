@@ -87,8 +87,10 @@ log "syncing files into deployment directory"
 rsync -a --delete \
   --exclude '.env' \
   --exclude '.env.local' \
+  --exclude '.user.ini' \
   --exclude 'data/' \
   --exclude 'node_modules/' \
+  --exclude '.next/' \
   --exclude 'logs/' \
   --exclude 'backups/' \
   --exclude '.git/' \
@@ -104,5 +106,5 @@ log "building application"
 npm run build
 
 log "upgrade completed successfully"
-log "database and .env were preserved"
+log "database, .env, .user.ini and .next were preserved"
 log "application was not started; start it with your own process manager"
