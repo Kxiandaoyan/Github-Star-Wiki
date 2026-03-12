@@ -756,25 +756,30 @@ export function getProjects(options: {
   page?: number;
   pageSize?: number;
   language?: string;
-  sortBy?: 'stars' | 'synced_at';
+  sortBy?: 'stars' | 'synced_at' | 'starred_at';
 } = {}) {
   const {
     page = 1,
     pageSize = 21,
     language,
-    sortBy = 'synced_at',
+    sortBy = 'starred_at',
   } = options;
 
   const offset = (page - 1) * pageSize;
   let sql = 'SELECT * FROM projects';
   const params: (string | number)[] = [];
+  const orderBy = sortBy === 'stars'
+    ? 'stars DESC'
+    : sortBy === 'synced_at'
+      ? 'synced_at DESC'
+      : 'starred_at DESC, synced_at DESC';
 
   if (language) {
     sql += ' WHERE language = ?';
     params.push(language);
   }
 
-  sql += ` ORDER BY ${sortBy} DESC LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
   params.push(pageSize, offset);
 
   const projects = db.prepare(sql).all(...params) as ProjectRecord[];

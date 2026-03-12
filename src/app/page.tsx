@@ -17,6 +17,7 @@ import db from '@/lib/db';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const HOME_PAGE_SIZE = 21;
 const ACTIVITY_WEEKS = 24;
+const HOME_PROJECT_ORDER = 'starred_at DESC, synced_at DESC';
 
 export const metadata: Metadata = {
   title: 'GitHub Star 项目搜索与知识卡片',
@@ -92,7 +93,7 @@ function searchProjects(options: {
       params.push(language);
     }
 
-    sql += ' ORDER BY synced_at DESC LIMIT ? OFFSET ?';
+    sql += ` ORDER BY ${HOME_PROJECT_ORDER} LIMIT ? OFFSET ?`;
     params.push(pageSize, offset);
 
     const projects = db.prepare(sql).all(...params) as ProjectRow[];
@@ -142,7 +143,7 @@ function searchProjects(options: {
     params.push(language);
   }
 
-  sql += ' ORDER BY synced_at DESC LIMIT ? OFFSET ?';
+  sql += ` ORDER BY ${HOME_PROJECT_ORDER} LIMIT ? OFFSET ?`;
   params.push(pageSize, offset);
 
   const projects = db.prepare(sql).all(...params) as ProjectRow[];
@@ -217,7 +218,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     Promise.resolve(
       query
         ? searchProjects({ query, language, page, pageSize: HOME_PAGE_SIZE })
-        : getProjects({ page, pageSize: HOME_PAGE_SIZE, language, sortBy: 'synced_at' })
+        : getProjects({ page, pageSize: HOME_PAGE_SIZE, language, sortBy: 'starred_at' })
     ),
     Promise.resolve(getLanguages()),
     fetchGitHubProfile(),

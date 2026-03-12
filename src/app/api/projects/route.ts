@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const language = searchParams.get('lang') || undefined;
-    const sortBy = (searchParams.get('sort') as 'stars' | 'synced_at') || 'synced_at';
+    const sortBy = (searchParams.get('sort') as 'stars' | 'synced_at' | 'starred_at') || 'starred_at';
 
     const result = getProjects({
       page,
