@@ -116,7 +116,7 @@ export const SEMANTIC_CLUSTER_DEFINITIONS: SemanticClusterDefinition[] = [
   {
     id: 'product-apps',
     label: '产品型应用',
-    description: '聚合可直接使用或自部署的应用、平台与产品化工具。',
+    description: '聚合可直接使用或自行部署的应用、平台与产品化工具。',
     color: '#10b981',
     keywords: ['self-hosted', 'application', 'platform', 'dashboard', 'productivity app', 'tool'],
     topicKeywords: ['self-hosted', 'app', 'application', 'platform', 'dashboard'],
