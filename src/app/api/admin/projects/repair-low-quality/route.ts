@@ -45,9 +45,9 @@ export async function POST(request: NextRequest) {
     const detailMessage = [
       `已入队 ${queued} 个补全任务`,
       `质量已达标 ${skippedByReason.quality_ok} 个`,
-      `队列中已有任务 ${skippedByReason.already_pending} 个`,
+      `队列中已存在任务 ${skippedByReason.already_pending} 个`,
       `达到自动补全上限 ${skippedByReason.max_attempts_reached} 个`,
-    ].join('，');
+    ].join('；');
 
     return apiSuccess(
       {

@@ -10,7 +10,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   title: '自动专题聚合页',
-  description: '基于站内 GitHub Star 项目自动生成的专题聚合页，包括 AI Agent、Next.js、自动化工具与独立开发者工具等稳定 SEO 入口。',
+  description: '基于站内 GitHub Star 项目自动生成的专题聚合页，适合按更高层的主题重新浏览和整理项目。',
   alternates: {
     canonical: '/collections',
   },
@@ -49,7 +49,7 @@ export default function CollectionsIndexPage() {
             自动专题聚合页
           </h1>
           <p className="mt-4 max-w-4xl text-sm leading-8 text-muted-foreground md:text-base">
-            这些页面不依赖人工写文章，而是根据站内项目的语言、标签、描述和用途特征自动聚合生成。它们既能提升 SEO，也能帮助用户从更高层的主题重新整理过去 Star 过的项目。
+            这些页面不是人工写文章，而是根据站内项目的语义、标签和用途自动聚合生成。它们既能承接 SEO，也适合从更高层的主题重新整理你过去 Star 过的项目。
           </p>
         </section>
 

@@ -49,7 +49,7 @@ export default function UseCasesIndexPage() {
             按使用场景浏览
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-8 text-muted-foreground md:text-base">
-            这里按真实任务场景聚合项目，比按技术名词更接近用户的目标，例如做 Agent 工作流、做自动化、做 UI 搭建或提升开发效率。
+            这里按真实任务场景聚合项目，比按技术名词更接近用户目标，例如做 Agent 工作流、做自动化、做 UI 搭建或提升开发效率。
           </p>
         </section>
 

@@ -203,12 +203,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const [projectCount, wikiCount, recordedStarCount, activity] = [
     (db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-    (db.prepare("SELECT COUNT(*) as count FROM projects WHERE wiki_status = 'completed'").get() as {
-      count: number;
-    }).count,
-    (db.prepare('SELECT COUNT(*) as count FROM projects WHERE starred_at IS NOT NULL').get() as {
-      count: number;
-    }).count,
+    (db.prepare("SELECT COUNT(*) as count FROM projects WHERE wiki_status = 'completed'").get() as { count: number }).count,
+    (db.prepare('SELECT COUNT(*) as count FROM projects WHERE starred_at IS NOT NULL').get() as { count: number }).count,
     getStarActivity(),
   ];
 
@@ -426,7 +422,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   {query ? '没有找到匹配的项目' : '还没有可展示的项目'}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  {query ? '换一个关键词，或者切换语言筛选条件。' : '先调用 /api/sync，同步你的 GitHub Star 列表。'}
+                  {query ? '换一个关键词，或者切换语言筛选条件。' : '先调用 `/api/sync`，同步你的 GitHub Star 列表。'}
                 </p>
               </CardContent>
             </Card>
@@ -495,7 +491,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     href={`/languages/${bucket.slug}`}
                     className="surface-chip rounded-[1.5rem] px-4 py-4 text-left text-sm text-foreground hover:text-primary"
                   >
-                    <div className="break-words font-medium leading-6 whitespace-normal">{bucket.name}</div>
+                    <div className="break-words whitespace-normal font-medium leading-6">{bucket.name}</div>
                     <div className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       {bucket.count} 个项目
                     </div>
@@ -531,7 +527,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     <div className="flex items-start gap-2">
                       <Sparkles className="mt-1 h-4 w-4 shrink-0 text-primary/80" />
                       <div className="min-w-0">
-                        <div className="break-words font-medium leading-6 whitespace-normal">
+                        <div className="break-words whitespace-normal font-medium leading-6">
                           {bucket.name}
                         </div>
                         <div className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">

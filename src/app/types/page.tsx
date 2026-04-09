@@ -10,7 +10,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   title: '项目类型聚合页',
-  description: '按应用、库、CLI、模板、文档等项目类型聚合站内 GitHub Star 项目，适合从项目形态角度重新整理收藏过的开源仓库。',
+  description: '按应用、库、CLI、模板、文档等项目类型聚合站内 GitHub Star 项目，适合从项目形态角度重新整理收藏过的仓库。',
   alternates: {
     canonical: '/types',
   },

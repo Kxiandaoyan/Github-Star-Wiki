@@ -49,7 +49,7 @@ export default function LanguagesIndexPage() {
             按编程语言浏览项目
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-8 text-muted-foreground md:text-base">
-            这是最轻量、最稳定的一类 SEO 聚合页。每个语言页都会自动聚合同技术栈项目，适合用户和搜索引擎一起使用。
+            这是最轻量、最稳定的一类聚合页。每个语言页都会自动聚合同技术栈项目，适合用户和搜索引擎一起使用。
           </p>
         </section>
 

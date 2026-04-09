@@ -25,8 +25,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const updates = typeof body.settings === 'object' && body.settings !== null
       ? Object.fromEntries(
-        Object.entries(body.settings as Record<string, unknown>).map(([key, value]) => [key, String(value ?? '')])
-      )
+          Object.entries(body.settings as Record<string, unknown>).map(([key, value]) => [key, String(value ?? '')])
+        )
       : {};
 
     saveSettings(updates);
@@ -38,7 +38,7 @@ export async function PUT(request: NextRequest) {
       {
         settings: getSettingsByCategory(),
         runtimeSummary,
-        detailMessage: `当前生效模型配置: ${runtimeSummaryText}`,
+        detailMessage: `当前生效模型配置：${runtimeSummaryText}`,
       },
       '设置已保存并重新加载。'
     );

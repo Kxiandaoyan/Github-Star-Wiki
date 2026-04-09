@@ -24,7 +24,7 @@ function buildDetailMessage(summaryText: string, tests: ModelTestResult[]) {
     `${item.label}(${item.model}) ${item.latencyMs}ms [${item.responseChannel}/${item.finishReason || 'unknown'}]: ${item.replyPreview}`
   );
 
-  return [`当前生效配置: ${summaryText}`, ...testLines].join('\n');
+  return [`当前生效配置：${summaryText}`, ...testLines].join('\n');
 }
 
 function extractOpenAICompatibleText(message: unknown) {
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     return apiError('当前没有可用的模型 API Key，无法执行连通性测试。', 400, 'MODEL_API_KEY_UNAVAILABLE', {
       runtimeSummary,
       runtimeSummaryText,
-      detailMessage: `当前生效配置: ${runtimeSummaryText}`,
+      detailMessage: `当前生效配置：${runtimeSummaryText}`,
     });
   }
 
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       runtimeSummary,
       runtimeSummaryText,
       reason,
-      detailMessage: `当前生效配置: ${runtimeSummaryText}\n失败原因: ${reason}`,
+      detailMessage: `当前生效配置：${runtimeSummaryText}\n失败原因：${reason}`,
     });
   }
 }
