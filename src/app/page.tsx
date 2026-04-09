@@ -78,20 +78,6 @@ interface ActivityPoint {
   count: number;
 }
 
-function dedupeBucketsBySlug<T extends { slug: string; name: string }>(items: T[]) {
-  const seen = new Set<string>();
-
-  return items.filter((item) => {
-    const slug = item.slug.trim();
-    if (!slug || seen.has(slug)) {
-      return false;
-    }
-
-    seen.add(slug);
-    return item.name.trim().length > 0;
-  });
-}
-
 function toDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -214,7 +200,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const featuredTopicBuckets = getTopicBuckets(12);
   const featuredSpecialCollections = getSpecialCollectionBuckets(4);
   const featuredProjectTypes = getProjectTypeBuckets(4);
-  const featuredUseCases = dedupeBucketsBySlug(getUseCaseBuckets(12)).slice(0, 4);
+  const featuredUseCases = getUseCaseBuckets(4);
 
   const websiteJsonLd = {
     '@context': 'https://schema.org',

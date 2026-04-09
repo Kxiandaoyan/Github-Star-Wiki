@@ -628,18 +628,17 @@ export function getUseCaseBuckets(limit = 12): SpecialCollectionBucket[] {
 
   return dedupeSpecialCollectionBuckets(
     [...buckets.entries()]
-    .map(([, value]) => ({
-      name: value.name,
-      slug: slugifyTaxonomyValue(value.name),
-      count: value.count,
-      title: `${value.name} 相关开源项目`,
-      description: `自动聚合站内已分析完成、并被识别与“${value.name}”相关的 GitHub Star 项目。`,
-      href: `/use-cases/${slugifyTaxonomyValue(value.name)}`,
-    }))
-    .filter((item) => item.name.trim().length > 0 && item.slug.length > 0)
-    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
-    .slice(0, limit)
-  );
+      .map(([, value]) => ({
+        name: value.name,
+        slug: slugifyTaxonomyValue(value.name),
+        count: value.count,
+        title: `${value.name} 相关开源项目`,
+        description: `自动聚合站内已分析完成、并被识别与“${value.name}”相关的 GitHub Star 项目。`,
+        href: `/use-cases/${slugifyTaxonomyValue(value.name)}`,
+      }))
+      .filter((item) => item.name.trim().length > 0 && item.slug.length > 0)
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+  ).slice(0, limit);
 }
 
 export function getProjectsByUseCaseSlug(slug: string) {
@@ -730,14 +729,24 @@ export function getMatchingUseCasesForProject(projectId: number) {
     return [] as SpecialCollectionBucket[];
   }
 
-  return getSemanticProfileFromProject(project).useCases.map((useCase) => ({
-      name: useCase,
-      slug: slugifyTaxonomyValue(useCase),
-      count: 0,
-      title: `${useCase} 相关开源项目`,
-      description: `查看站内与“${useCase}”相关的已分析 GitHub Star 项目。`,
-      href: `/use-cases/${slugifyTaxonomyValue(useCase)}`,
-    }));
+  return dedupeSpecialCollectionBuckets(
+    getSemanticProfileFromProject(project).useCases
+      .map((useCase) => useCase.trim())
+      .filter((useCase) => useCase.length > 0 && normalizeUseCaseKey(useCase).length > 0)
+      .map((useCase) => {
+        const slug = slugifyTaxonomyValue(useCase);
+
+        return {
+          name: useCase,
+          slug,
+          count: 0,
+          title: `${useCase} 相关开源项目`,
+          description: `查看站内与“${useCase}”相关的已分析 GitHub Star 项目。`,
+          href: `/use-cases/${slug}`,
+        };
+      })
+      .filter((item) => item.slug.length > 0)
+  );
 }
 
 export function getProjectTypeLinkForProject(projectId: number) {
