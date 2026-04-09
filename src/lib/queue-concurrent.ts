@@ -74,6 +74,10 @@ function parseTopics(topics: string | null) {
   }
 }
 
+function getFollowUpTaskPriority(currentPriority: number) {
+  return Math.max(0, currentPriority - 1);
+}
+
 export class ConcurrentQueueProcessor {
   private isRunning = false;
   private concurrency: number;
@@ -119,6 +123,11 @@ export class ConcurrentQueueProcessor {
 
       const taskLabel = `${task.task_type} project=${task.project_id} queueTask=${task.id}`;
       const apiKey = this.taskNeedsLlm(task.task_type) ? this.getAvailableApiKey() : null;
+      const startedAt = Date.now();
+
+      console.log(
+        `[Worker ${workerId}] ${taskLabel} started${apiKey ? ` model=${this.getTaskModelName(task.task_type, apiKey)}` : ''}.`
+      );
 
       if (this.taskNeedsLlm(task.task_type) && !apiKey) {
         this.releaseTask(task.id, 10000, '[NO_API_KEY] 当前没有可用的 API Key。');
@@ -129,9 +138,11 @@ export class ConcurrentQueueProcessor {
 
       try {
         const outcome = await this.processTask(task, apiKey);
+        const durationMs = Date.now() - startedAt;
+        const nextTaskSummary = this.getNextTaskSummary(task.project_id);
 
         if (outcome === 'skipped') {
-          console.log(`[Worker ${workerId}] ${taskLabel} skipped.`);
+          console.log(`[Worker ${workerId}] ${taskLabel} skipped in ${durationMs}ms.${nextTaskSummary ? ` next=${nextTaskSummary}` : ''}`);
           continue;
         }
 
@@ -141,7 +152,7 @@ export class ConcurrentQueueProcessor {
           WHERE id = ?
         `).run(task.id);
 
-        console.log(`[Worker ${workerId}] ${taskLabel} completed.`);
+        console.log(`[Worker ${workerId}] ${taskLabel} completed in ${durationMs}ms.${nextTaskSummary ? ` next=${nextTaskSummary}` : ''}`);
       } catch (error) {
         const taskError = error instanceof Error ? error : new Error('Unknown queue task error');
         console.error(`[Worker ${workerId}] ${taskLabel} failed:`, taskError.message);
@@ -158,16 +169,42 @@ export class ConcurrentQueueProcessor {
       || taskType === 'generate_profile';
   }
 
-  private getLlmClient(apiKey: ApiKey, taskType: PipelineTaskType) {
+  private getTaskModelName(taskType: PipelineTaskType, apiKey: ApiKey) {
     const analysisModel = getSettingValue('MODEL_ANALYSIS_NAME').trim();
+    return taskType === 'generate_profile' ? apiKey.model : (analysisModel || apiKey.model);
+  }
+
+  private getLlmClient(apiKey: ApiKey, taskType: PipelineTaskType) {
     const apiFormat = getSettingValue('MODEL_API_FORMAT').trim();
 
     return new LLMClient({
       apiKey: apiKey.api_key,
       baseUrl: apiKey.base_url,
       apiFormat,
-      model: taskType === 'generate_profile' ? apiKey.model : (analysisModel || apiKey.model),
+      model: this.getTaskModelName(taskType, apiKey),
     });
+  }
+
+  private getNextTaskSummary(projectId: number) {
+    const nextTask = db.prepare(`
+      SELECT task_type, status, priority
+      FROM task_queue
+      WHERE project_id = ?
+        AND status IN ('pending', 'processing')
+      ORDER BY
+        CASE status WHEN 'processing' THEN 0 ELSE 1 END,
+        priority ASC,
+        COALESCE(available_at, created_at) ASC,
+        created_at ASC,
+        id ASC
+      LIMIT 1
+    `).get(projectId) as { task_type: string; status: string; priority: number } | undefined;
+
+    if (!nextTask) {
+      return '';
+    }
+
+    return `${nextTask.task_type}/${nextTask.status}/p${nextTask.priority}`;
   }
 
   private recoverInterruptedTasks() {
@@ -361,7 +398,7 @@ export class ConcurrentQueueProcessor {
 
     this.markProjectGenerating(project.id);
     saveProjectScan(project.id, scan);
-    enqueueTask(project.id, 'analyze_repo', task.priority);
+    enqueueTask(project.id, 'analyze_repo', getFollowUpTaskPriority(task.priority));
     return 'completed';
   }
 
@@ -379,7 +416,11 @@ export class ConcurrentQueueProcessor {
     this.updateApiKeyUsage(apiKey.id);
 
     const hasFilesToRead = (analysis.recommendedFiles.length > 0 || artifacts.scan.candidateFiles.length > 0);
-    enqueueTask(project.id, hasFilesToRead ? 'deep_read_repo' : 'generate_profile', task.priority);
+    enqueueTask(
+      project.id,
+      hasFilesToRead ? 'deep_read_repo' : 'generate_profile',
+      getFollowUpTaskPriority(task.priority)
+    );
 
     return 'completed';
   }
@@ -409,7 +450,7 @@ export class ConcurrentQueueProcessor {
         reasoningSummary: '当前仓库没有读取到适合深读的关键文件内容。',
       });
       this.refreshSemanticProfile(project.id);
-      enqueueTask(project.id, 'generate_profile', task.priority);
+      enqueueTask(project.id, 'generate_profile', getFollowUpTaskPriority(task.priority));
       return 'completed';
     }
 
@@ -436,7 +477,7 @@ export class ConcurrentQueueProcessor {
     saveProjectDeepRead(project.id, deepRead);
     this.refreshSemanticProfile(project.id);
     this.updateApiKeyUsage(apiKey.id);
-    enqueueTask(project.id, 'generate_profile', task.priority);
+    enqueueTask(project.id, 'generate_profile', getFollowUpTaskPriority(task.priority));
 
     return 'completed';
   }

@@ -624,13 +624,13 @@ export function getProjects(options: {
   page?: number;
   pageSize?: number;
   language?: string;
-  sortBy?: 'stars' | 'synced_at';
+  sortBy?: 'stars' | 'synced_at' | 'starred_at' | 'id';
 } = {}) {
   const {
     page = 1,
     pageSize = 21,
     language,
-    sortBy = 'synced_at',
+    sortBy = 'starred_at',
   } = options;
 
   const offset = (page - 1) * pageSize;
@@ -667,12 +667,20 @@ export function getProjects(options: {
   `;
   const params: (string | number)[] = [];
 
+  const orderClauseMap = {
+    stars: 'p.stars DESC, p.id DESC',
+    synced_at: 'COALESCE(p.synced_at, p.updated_at, p.created_at) DESC, p.id DESC',
+    starred_at: 'COALESCE(p.starred_at, p.created_at) DESC, p.id DESC',
+    id: 'p.id DESC',
+  } as const;
+  const orderClause = orderClauseMap[sortBy] || orderClauseMap.starred_at;
+
   if (language) {
     sql += ' WHERE p.language = ?';
     params.push(language);
   }
 
-  sql += ` ORDER BY p.${sortBy} DESC LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY ${orderClause} LIMIT ? OFFSET ?`;
   params.push(pageSize, offset);
 
   const projects = db.prepare(sql).all(...params) as ProjectRecord[];

@@ -275,7 +275,7 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
+      <main translate="no" className="notranslate mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
         <section className="mb-8 surface-panel rounded-[2rem] p-7 md:p-9">
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-4xl">
             Star Wiki 后台

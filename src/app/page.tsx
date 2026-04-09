@@ -119,6 +119,61 @@ function getStarActivity(weeks = ACTIVITY_WEEKS) {
   return cells;
 }
 
+function buildPageHref(pageNumber: number, language?: string, query?: string) {
+  const searchParams = new URLSearchParams();
+
+  if (pageNumber > 1) {
+    searchParams.set('page', String(pageNumber));
+  }
+
+  if (language) {
+    searchParams.set('lang', language);
+  }
+
+  if (query) {
+    searchParams.set('q', query);
+  }
+
+  const serialized = searchParams.toString();
+  return serialized ? `/?${serialized}` : '/';
+}
+
+function getPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 30) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+
+  if (currentPage <= 3) {
+    pages.add(2);
+    pages.add(3);
+    pages.add(4);
+  }
+
+  if (currentPage >= totalPages - 2) {
+    pages.add(totalPages - 1);
+    pages.add(totalPages - 2);
+    pages.add(totalPages - 3);
+  }
+
+  const sortedPages = [...pages]
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= totalPages)
+    .sort((left, right) => left - right);
+
+  const items: Array<number | 'ellipsis'> = [];
+
+  sortedPages.forEach((pageNumber, index) => {
+    if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
+      items.push('ellipsis');
+    }
+
+    items.push(pageNumber);
+  });
+
+  return items;
+}
+
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const page = Number.parseInt(params.page || '1', 10) || 1;
@@ -129,7 +184,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     Promise.resolve(
       query
         ? searchProjects({ query, language, page, pageSize: HOME_PAGE_SIZE, sortBy: 'relevance' })
-        : getProjects({ page, pageSize: HOME_PAGE_SIZE, language, sortBy: 'synced_at' })
+        : getProjects({ page, pageSize: HOME_PAGE_SIZE, language, sortBy: 'starred_at' })
     ),
     Promise.resolve(getLanguages()),
     fetchGitHubProfile(),
@@ -528,19 +583,45 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           )}
 
           {result.totalPages > 1 ? (
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-              {Array.from({ length: Math.min(result.totalPages, 10) }, (_, index) => index + 1).map((pageNumber) => (
-                <Button
-                  key={pageNumber}
-                  asChild
-                  variant={pageNumber === page ? 'default' : 'ghost'}
-                  className="rounded-full"
-                >
-                  <Link href={`/?page=${pageNumber}${language ? `&lang=${language}` : ''}${query ? `&q=${query}` : ''}`}>
-                    {pageNumber}
-                  </Link>
+            <div className="space-y-3 pt-2">
+              <div className="text-center text-sm text-muted-foreground">
+                第 {page} / {result.totalPages} 页
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+              {page > 1 ? (
+                <Button asChild variant="ghost" className="rounded-full">
+                  <Link href={buildPageHref(page - 1, language, query)}>上一页</Link>
                 </Button>
+              ) : null}
+
+              {getPaginationItems(page, result.totalPages).map((item, index) => (
+                item === 'ellipsis' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-2 text-sm text-muted-foreground"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <Button
+                    key={item}
+                    asChild
+                    variant={item === page ? 'default' : 'ghost'}
+                    className="rounded-full"
+                  >
+                    <Link href={buildPageHref(item, language, query)}>
+                      {item}
+                    </Link>
+                  </Button>
+                )
               ))}
+
+              {page < result.totalPages ? (
+                <Button asChild variant="ghost" className="rounded-full">
+                  <Link href={buildPageHref(page + 1, language, query)}>下一页</Link>
+                </Button>
+              ) : null}
+              </div>
             </div>
           ) : null}
         </section>
