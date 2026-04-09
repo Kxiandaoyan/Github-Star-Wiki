@@ -1,17 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CollectionPage } from '@/components/seo/CollectionPage';
-import { getProjectTypeBuckets, getProjectsByProjectTypeSlug } from '@/lib/taxonomy';
+import { getProjectsByProjectTypeSlug } from '@/lib/taxonomy';
 
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-export async function generateStaticParams() {
-  return getProjectTypeBuckets(100).map((bucket) => ({
-    slug: bucket.slug,
-  }));
-}
 
 export async function generateMetadata({
   params,

@@ -18,6 +18,8 @@ export interface SearchProjectRow {
   created_at: string;
   one_line_status: string;
   semantic_data: string | null;
+  current_task_type: string | null;
+  current_task_status: string | null;
 }
 
 export interface SearchProjectsOptions {
@@ -216,6 +218,38 @@ function buildSearchWhere(options: {
   return { conditions, params };
 }
 
+const currentTaskTypeSql = `
+  (
+    SELECT tq.task_type
+    FROM task_queue tq
+    WHERE tq.project_id = p.id
+      AND tq.status IN ('processing', 'pending')
+    ORDER BY
+      CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+      tq.priority ASC,
+      COALESCE(tq.available_at, tq.created_at) ASC,
+      tq.created_at ASC,
+      tq.id ASC
+    LIMIT 1
+  ) AS current_task_type
+`;
+
+const currentTaskStatusSql = `
+  (
+    SELECT tq.status
+    FROM task_queue tq
+    WHERE tq.project_id = p.id
+      AND tq.status IN ('processing', 'pending')
+    ORDER BY
+      CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+      tq.priority ASC,
+      COALESCE(tq.available_at, tq.created_at) ASC,
+      tq.created_at ASC,
+      tq.id ASC
+    LIMIT 1
+  ) AS current_task_status
+`;
+
 export function searchProjects(options: SearchProjectsOptions) {
   const {
     query,
@@ -257,7 +291,9 @@ export function searchProjects(options: SearchProjectsOptions) {
         p.synced_at,
         p.created_at,
         p.one_line_status,
-        pa.semantic_data
+        pa.semantic_data,
+        ${currentTaskTypeSql},
+        ${currentTaskStatusSql}
       FROM projects p
       LEFT JOIN project_analysis pa ON pa.project_id = p.id
       ${whereClause}
@@ -307,7 +343,9 @@ export function searchProjects(options: SearchProjectsOptions) {
       p.synced_at,
       p.created_at,
       p.one_line_status,
-      pa.semantic_data
+      pa.semantic_data,
+      ${currentTaskTypeSql},
+      ${currentTaskStatusSql}
     FROM projects p
     LEFT JOIN project_analysis pa ON pa.project_id = p.id
     ${whereClause}

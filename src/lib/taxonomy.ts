@@ -1,6 +1,11 @@
 import db from './db';
 import type { RepositoryAnalysisResult, RepositoryDeepReadResult } from './project-analysis';
-import { deriveProjectSemanticProfile, getSemanticClusterLookup, type ProjectSemanticProfile } from './semantic-profile';
+import {
+  deriveProjectSemanticProfile,
+  getSemanticClusterLookup,
+  SEMANTIC_CLUSTER_DEFINITIONS,
+  type ProjectSemanticProfile,
+} from './semantic-profile';
 
 export interface ProjectListItem {
   id: number;
@@ -53,6 +58,9 @@ interface RelatedProjectRow extends ProjectListItem {
 
 interface SpecialCollectionProjectRow extends ProjectListItem {
   topics: string | null;
+  semantic_data?: string | null;
+  analysis_data?: string | null;
+  deep_read_data?: string | null;
 }
 
 interface ProjectSignals {
@@ -395,10 +403,43 @@ export function getTopicBuckets(limit = 18): TaxonomyBucket[] {
 
 function getProjectsBase() {
   return db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type
-    FROM projects
-    ORDER BY stars DESC, synced_at DESC
+    SELECT
+      p.id,
+      p.full_name,
+      p.description,
+      p.one_line_intro,
+      p.stars,
+      p.language,
+      p.one_line_status,
+      p.topics,
+      p.project_type,
+      pa.semantic_data,
+      pa.analysis_data,
+      pa.deep_read_data
+    FROM projects p
+    LEFT JOIN project_analysis pa ON pa.project_id = p.id
+    WHERE p.one_line_status = 'completed'
+      AND p.intro_status = 'completed'
+      AND p.wiki_status = 'completed'
+    ORDER BY p.stars DESC, p.synced_at DESC
   `).all() as SpecialCollectionProjectRow[];
+}
+
+function getSemanticProfileFromProject(project: SpecialCollectionProjectRow) {
+  return parseJson<ProjectSemanticProfile>(project.semantic_data)
+    || deriveProjectSemanticProfile({
+      projectName: project.full_name,
+      description: project.description,
+      projectType: project.project_type,
+      topics: parseTopics(project.topics),
+      oneLineIntro: project.one_line_intro,
+      analysis: parseJson<RepositoryAnalysisResult>(project.analysis_data),
+      deepRead: parseJson<RepositoryDeepReadResult>(project.deep_read_data),
+    });
+}
+
+function normalizeUseCaseKey(value: string) {
+  return normalizeText(value);
 }
 
 function toProjectListItem(project: SpecialCollectionProjectRow): ProjectListItem {
@@ -419,6 +460,10 @@ function getProjectsForDefinition(definition: SpecialCollectionDefinition) {
     .filter((project) => definition.matches(project, buildSignals(project)))
     .map(toProjectListItem);
 }
+
+void specialCollectionDefinitions;
+void useCaseDefinitions;
+void getProjectsForDefinition;
 
 export function getProjectsByLanguageSlug(slug: string) {
   const bucket = getLanguageBuckets(1000).find((item) => item.slug === slug);
@@ -456,16 +501,18 @@ export function getProjectsByTopicSlug(slug: string) {
 }
 
 export function getSpecialCollectionBuckets(limit = 12): SpecialCollectionBucket[] {
-  return specialCollectionDefinitions
-    .map((definition) => {
-      const projects = getProjectsForDefinition(definition);
+  const projects = getProjectsBase();
+
+  return SEMANTIC_CLUSTER_DEFINITIONS
+    .map((cluster) => {
+      const count = projects.filter((project) => getSemanticProfileFromProject(project).primaryCluster === cluster.id).length;
       return {
-        name: definition.name,
-        slug: definition.slug,
-        count: projects.length,
-        title: definition.title,
-        description: definition.description,
-        href: `/collections/${definition.slug}`,
+        name: cluster.label,
+        slug: cluster.id,
+        count,
+        title: `${cluster.label} 开源项目`,
+        description: cluster.description,
+        href: `/collections/${cluster.id}`,
       };
     })
     .filter((bucket) => bucket.count > 0)
@@ -473,26 +520,29 @@ export function getSpecialCollectionBuckets(limit = 12): SpecialCollectionBucket
 }
 
 export function getProjectsBySpecialCollectionSlug(slug: string) {
-  const definition = specialCollectionDefinitions.find((item) => item.slug === slug);
-  if (!definition) {
+  const clusterLookup = getSemanticClusterLookup();
+  const cluster = clusterLookup.get(slug);
+  if (!cluster) {
     return null;
   }
 
-  const projects = getProjectsForDefinition(definition);
+  const projects = getProjectsBase()
+    .filter((project) => getSemanticProfileFromProject(project).primaryCluster === slug)
+    .map(toProjectListItem);
+
   if (projects.length === 0) {
     return null;
   }
 
   return {
     bucket: {
-      name: definition.name,
-      slug: definition.slug,
+      name: cluster.label,
+      slug,
       count: projects.length,
-      title: definition.title,
-      description: definition.description,
-      href: `/collections/${definition.slug}`,
+      title: `${cluster.label} 开源项目`,
+      description: cluster.description,
+      href: `/collections/${slug}`,
     },
-    definition,
     projects,
   };
 }
@@ -502,6 +552,9 @@ export function getProjectTypeBuckets(limit = 12): SpecialCollectionBucket[] {
     SELECT project_type, COUNT(*) as count
     FROM projects
     WHERE project_type IS NOT NULL AND TRIM(project_type) != '' AND project_type != 'unknown'
+      AND one_line_status = 'completed'
+      AND intro_status = 'completed'
+      AND wiki_status = 'completed'
     GROUP BY project_type
     ORDER BY count DESC, project_type ASC
   `).all() as Array<{ project_type: string; count: number }>;
@@ -531,6 +584,9 @@ export function getProjectsByProjectTypeSlug(slug: string) {
     SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type
     FROM projects
     WHERE LOWER(project_type) = ?
+      AND one_line_status = 'completed'
+      AND intro_status = 'completed'
+      AND wiki_status = 'completed'
     ORDER BY stars DESC, synced_at DESC
   `).all(rawProjectType) as ProjectListItem[];
 
@@ -538,94 +594,133 @@ export function getProjectsByProjectTypeSlug(slug: string) {
 }
 
 export function getUseCaseBuckets(limit = 12): SpecialCollectionBucket[] {
-  return useCaseDefinitions
-    .map((definition) => {
-      const projects = getProjectsForDefinition(definition);
-      return {
-        name: definition.name,
-        slug: definition.slug,
-        count: projects.length,
-        title: definition.title,
-        description: definition.description,
-        href: `/use-cases/${definition.slug}`,
-      };
-    })
-    .filter((bucket) => bucket.count > 0)
+  const projects = getProjectsBase();
+  const buckets = new Map<string, { name: string; count: number }>();
+
+  projects.forEach((project) => {
+    getSemanticProfileFromProject(project).useCases.forEach((useCase) => {
+      const name = useCase.trim();
+      const key = normalizeUseCaseKey(name);
+      if (!name || !key) {
+        return;
+      }
+
+      const current = buckets.get(key);
+      buckets.set(key, {
+        name: current?.name || name,
+        count: (current?.count || 0) + 1,
+      });
+    });
+  });
+
+  return [...buckets.entries()]
+    .map(([, value]) => ({
+      name: value.name,
+      slug: slugifyTaxonomyValue(value.name),
+      count: value.count,
+      title: `${value.name} 相关开源项目`,
+      description: `自动聚合站内已分析完成、并被识别与“${value.name}”相关的 GitHub Star 项目。`,
+      href: `/use-cases/${slugifyTaxonomyValue(value.name)}`,
+    }))
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
     .slice(0, limit);
 }
 
 export function getProjectsByUseCaseSlug(slug: string) {
-  const definition = useCaseDefinitions.find((item) => item.slug === slug);
-  if (!definition) {
+  const bucket = getUseCaseBuckets(500).find((item) => item.slug === slug);
+  if (!bucket) {
     return null;
   }
 
-  const projects = getProjectsForDefinition(definition);
+  const normalizedName = normalizeUseCaseKey(bucket.name);
+  const projects = getProjectsBase()
+    .filter((project) => getSemanticProfileFromProject(project).useCases.some((item) => normalizeUseCaseKey(item) === normalizedName))
+    .map(toProjectListItem);
+
   if (projects.length === 0) {
     return null;
   }
 
   return {
     bucket: {
-      name: definition.name,
-      slug: definition.slug,
+      ...bucket,
       count: projects.length,
-      title: definition.title,
-      description: definition.description,
-      href: `/use-cases/${definition.slug}`,
     },
-    definition,
     projects,
   };
 }
 
 export function getMatchingSpecialCollectionsForProject(projectId: number) {
   const project = db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type
-    FROM projects
-    WHERE id = ?
+    SELECT
+      p.id,
+      p.full_name,
+      p.description,
+      p.one_line_intro,
+      p.stars,
+      p.language,
+      p.one_line_status,
+      p.topics,
+      p.project_type,
+      pa.semantic_data,
+      pa.analysis_data,
+      pa.deep_read_data
+    FROM projects p
+    LEFT JOIN project_analysis pa ON pa.project_id = p.id
+    WHERE p.id = ?
   `).get(projectId) as SpecialCollectionProjectRow | undefined;
 
   if (!project) {
     return [] as SpecialCollectionBucket[];
   }
 
-  const signals = buildSignals(project);
+  const profile = getSemanticProfileFromProject(project);
+  const cluster = getSemanticClusterLookup().get(profile.primaryCluster);
+  if (!cluster) {
+    return [] as SpecialCollectionBucket[];
+  }
 
-  return specialCollectionDefinitions
-    .filter((definition) => definition.matches(project, signals))
-    .map((definition) => ({
-      name: definition.name,
-      slug: definition.slug,
+  return [{
+      name: cluster.label,
+      slug: cluster.id,
       count: 0,
-      title: definition.title,
-      description: definition.description,
-      href: `/collections/${definition.slug}`,
-    }));
+      title: `${cluster.label} 开源项目`,
+      description: cluster.description,
+      href: `/collections/${cluster.id}`,
+    }];
 }
 
 export function getMatchingUseCasesForProject(projectId: number) {
   const project = db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type
-    FROM projects
-    WHERE id = ?
+    SELECT
+      p.id,
+      p.full_name,
+      p.description,
+      p.one_line_intro,
+      p.stars,
+      p.language,
+      p.one_line_status,
+      p.topics,
+      p.project_type,
+      pa.semantic_data,
+      pa.analysis_data,
+      pa.deep_read_data
+    FROM projects p
+    LEFT JOIN project_analysis pa ON pa.project_id = p.id
+    WHERE p.id = ?
   `).get(projectId) as SpecialCollectionProjectRow | undefined;
 
   if (!project) {
     return [] as SpecialCollectionBucket[];
   }
 
-  const signals = buildSignals(project);
-
-  return useCaseDefinitions
-    .filter((definition) => definition.matches(project, signals))
-    .map((definition) => ({
-      name: definition.name,
-      slug: definition.slug,
+  return getSemanticProfileFromProject(project).useCases.map((useCase) => ({
+      name: useCase,
+      slug: slugifyTaxonomyValue(useCase),
       count: 0,
-      title: definition.title,
-      description: definition.description,
-      href: `/use-cases/${definition.slug}`,
+      title: `${useCase} 相关开源项目`,
+      description: `查看站内与“${useCase}”相关的已分析 GitHub Star 项目。`,
+      href: `/use-cases/${slugifyTaxonomyValue(useCase)}`,
     }));
 }
 

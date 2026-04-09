@@ -74,6 +74,8 @@ interface ProjectRecord {
   one_line_status: string;
   intro_status: string;
   wiki_status: string;
+  current_task_type: string | null;
+  current_task_status: string | null;
 }
 
 interface LanguageCount {
@@ -505,7 +507,7 @@ export async function syncStarredRepos(): Promise<SyncResult> {
           per_page: perPage,
           page,
           sort: 'created',
-          direction: 'desc',
+          direction: 'asc',
         },
       });
 
@@ -632,15 +634,45 @@ export function getProjects(options: {
   } = options;
 
   const offset = (page - 1) * pageSize;
-  let sql = 'SELECT * FROM projects';
+  let sql = `
+    SELECT
+      p.*,
+      (
+        SELECT tq.task_type
+        FROM task_queue tq
+        WHERE tq.project_id = p.id
+          AND tq.status IN ('processing', 'pending')
+        ORDER BY
+          CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+          tq.priority ASC,
+          COALESCE(tq.available_at, tq.created_at) ASC,
+          tq.created_at ASC,
+          tq.id ASC
+        LIMIT 1
+      ) AS current_task_type,
+      (
+        SELECT tq.status
+        FROM task_queue tq
+        WHERE tq.project_id = p.id
+          AND tq.status IN ('processing', 'pending')
+        ORDER BY
+          CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+          tq.priority ASC,
+          COALESCE(tq.available_at, tq.created_at) ASC,
+          tq.created_at ASC,
+          tq.id ASC
+        LIMIT 1
+      ) AS current_task_status
+    FROM projects p
+  `;
   const params: (string | number)[] = [];
 
   if (language) {
-    sql += ' WHERE language = ?';
+    sql += ' WHERE p.language = ?';
     params.push(language);
   }
 
-  sql += ` ORDER BY ${sortBy} DESC LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY p.${sortBy} DESC LIMIT ? OFFSET ?`;
   params.push(pageSize, offset);
 
   const projects = db.prepare(sql).all(...params) as ProjectRecord[];
@@ -662,7 +694,38 @@ export function getProjects(options: {
 }
 
 export function getProjectById(id: number) {
-  return db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRecord | undefined;
+  return db.prepare(`
+    SELECT
+      p.*,
+      (
+        SELECT tq.task_type
+        FROM task_queue tq
+        WHERE tq.project_id = p.id
+          AND tq.status IN ('processing', 'pending')
+        ORDER BY
+          CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+          tq.priority ASC,
+          COALESCE(tq.available_at, tq.created_at) ASC,
+          tq.created_at ASC,
+          tq.id ASC
+        LIMIT 1
+      ) AS current_task_type,
+      (
+        SELECT tq.status
+        FROM task_queue tq
+        WHERE tq.project_id = p.id
+          AND tq.status IN ('processing', 'pending')
+        ORDER BY
+          CASE tq.status WHEN 'processing' THEN 0 ELSE 1 END,
+          tq.priority ASC,
+          COALESCE(tq.available_at, tq.created_at) ASC,
+          tq.created_at ASC,
+          tq.id ASC
+        LIMIT 1
+      ) AS current_task_status
+    FROM projects p
+    WHERE p.id = ?
+  `).get(id) as ProjectRecord | undefined;
 }
 
 export function getProjectByFullName(fullName: string) {

@@ -14,6 +14,8 @@ interface ProjectCardProps {
   stars: number;
   language: string | null;
   one_line_status: string;
+  current_task_type?: string | null;
+  current_task_status?: string | null;
   className?: string;
 }
 
@@ -40,6 +42,23 @@ function formatStars(stars: number) {
   return String(stars);
 }
 
+function getTaskLabel(taskType: string | null | undefined, taskStatus: string | null | undefined) {
+  const prefix = taskStatus === 'processing' ? '正在' : '等待';
+
+  switch (taskType) {
+    case 'scan_repo':
+      return `${prefix}扫描仓库`;
+    case 'analyze_repo':
+      return `${prefix}分析仓库`;
+    case 'deep_read_repo':
+      return `${prefix}深读代码`;
+    case 'generate_profile':
+      return `${prefix}生成介绍`;
+    default:
+      return taskStatus === 'processing' ? '正在生成内容' : '等待生成内容';
+  }
+}
+
 export function ProjectCard({
   id,
   full_name,
@@ -48,12 +67,16 @@ export function ProjectCard({
   stars,
   language,
   one_line_status,
+  current_task_type,
+  current_task_status,
   className,
 }: ProjectCardProps) {
   const [owner, name] = full_name.split('/');
   const languageColor = languageColors[language || ''] || languageColors.default;
   const isGenerated = one_line_status === 'completed' && !!one_line_intro;
-  const isGenerating = one_line_status === 'generating';
+  const hasTask = Boolean(current_task_type && current_task_status);
+  const isProcessing = current_task_status === 'processing';
+  const taskLabel = hasTask ? getTaskLabel(current_task_type, current_task_status) : null;
 
   return (
     <Link href={`/projects/${id}`} className="block h-full">
@@ -80,10 +103,17 @@ export function ProjectCard({
         <CardContent className="min-h-[110px]">
           {isGenerated ? (
             <p className="line-clamp-3 text-sm leading-7 text-foreground/80">{one_line_intro}</p>
-          ) : isGenerating ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-700 dark:text-emerald-300">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              正在生成 AI 简介
+          ) : hasTask && taskLabel ? (
+            <div
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm',
+                isProcessing
+                  ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+              )}
+            >
+              <LoaderCircle className={cn('h-4 w-4', isProcessing ? 'animate-spin' : '')} />
+              {taskLabel}
             </div>
           ) : (
             <p className="line-clamp-3 text-sm leading-7 text-muted-foreground">

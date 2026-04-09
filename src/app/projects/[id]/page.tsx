@@ -141,6 +141,23 @@ function getMindMapFallback(projectType: string | null) {
   return '当前仓库信息不足，或者结构不够稳定，暂时没有生成可靠的思维导图。';
 }
 
+function getProjectTaskLabel(taskType: string | null | undefined, taskStatus: string | null | undefined) {
+  const prefix = taskStatus === 'processing' ? '正在' : '等待';
+
+  switch (taskType) {
+    case 'scan_repo':
+      return `${prefix}扫描仓库`;
+    case 'analyze_repo':
+      return `${prefix}分析仓库用途`;
+    case 'deep_read_repo':
+      return `${prefix}深读关键代码`;
+    case 'generate_profile':
+      return `${prefix}生成介绍与文档`;
+    default:
+      return taskStatus === 'processing' ? '正在生成内容' : '等待生成内容';
+  }
+}
+
 export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
   const { id: rawId } = await params;
   const id = Number.parseInt(rawId, 10);
@@ -250,13 +267,13 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       {
         '@type': 'ListItem',
         position: 1,
-        name: 'Home',
+        name: '首页',
         item: SITE_URL,
       },
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Projects',
+        name: '项目',
         item: `${SITE_URL}/`,
       },
       {
@@ -314,7 +331,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <div className="flex flex-wrap items-center gap-2">
                 <span className="surface-chip inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Project Profile
+                  项目档案
                 </span>
                 <span className="surface-chip rounded-full px-3 py-1 text-xs text-foreground">
                   {projectTypeLabel}
@@ -375,6 +392,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 <p className="rounded-[1.4rem] border border-border/60 bg-background/30 px-5 py-4 text-base leading-8 text-foreground/90">
                   {project.one_line_intro}
                 </p>
+              ) : project.current_task_type ? (
+                <LoadingChip
+                  label={getProjectTaskLabel(project.current_task_type, project.current_task_status)}
+                  pending={project.current_task_status !== 'processing'}
+                />
               ) : project.one_line_status === 'generating' ? (
                 <LoadingChip label="正在生成一句话总结" />
               ) : (
@@ -392,6 +414,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 <div className="prose max-w-none whitespace-pre-wrap text-muted-foreground">
                   {project.chinese_intro}
                 </div>
+              ) : project.current_task_type ? (
+                <LoadingChip
+                  label={getProjectTaskLabel(project.current_task_type, project.current_task_status)}
+                  pending={project.current_task_status !== 'processing'}
+                />
               ) : project.intro_status === 'generating' ? (
                 <LoadingChip label="正在生成中文介绍" />
               ) : (
@@ -418,6 +445,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     </article>
                   ))}
                 </div>
+              ) : project.current_task_type ? (
+                <LoadingChip
+                  label={getProjectTaskLabel(project.current_task_type, project.current_task_status)}
+                  pending={project.current_task_status !== 'processing'}
+                />
               ) : project.wiki_status === 'generating' ? (
                 <LoadingChip label="正在生成详细章节" />
               ) : (
@@ -539,7 +571,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <section className="surface-panel rounded-[1.8rem] p-6">
                 <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Related Topics
+                  相关标签
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {projectTopics.map((topic) => (
@@ -621,7 +653,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <section className="surface-panel rounded-[1.8rem] p-6">
                 <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
                   <Link2 className="h-4 w-4 text-primary" />
-                  Related Projects
+                  相关项目
                 </div>
                 <div className="space-y-3">
                   {relatedProjects.map((item) => (
@@ -651,10 +683,17 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   );
 }
 
-function LoadingChip({ label }: { label: string }) {
+function LoadingChip({ label, pending = false }: { label: string; pending?: boolean }) {
   return (
-    <div className="inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-primary">
-      <RefreshCw className="h-4 w-4 animate-spin" />
+    <div
+      className={cn(
+        'inline-flex items-center gap-3 rounded-full px-4 py-2',
+        pending
+          ? 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+          : 'border border-primary/20 bg-primary/10 text-primary'
+      )}
+    >
+      <RefreshCw className={cn('h-4 w-4', pending ? '' : 'animate-spin')} />
       {label}
     </div>
   );

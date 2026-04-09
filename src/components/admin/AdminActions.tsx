@@ -175,7 +175,7 @@ export function AdminActions({
             className="w-full rounded-2xl bg-amber-400 text-amber-950 hover:bg-amber-300"
           >
             {isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-            一键 Update 全部项目说明
+            一键重写全部项目说明
           </Button>
 
           <Button
@@ -234,9 +234,9 @@ export function AdminActions({
           <Metric label="已生成 Wiki" value={wikiReadyCount} />
           <Metric label="待处理任务" value={queue.pending} />
           <Metric label="处理中任务" value={queue.processing} />
-          <Metric label="已完成任务" value={queue.completed} />
-          <Metric label="失败任务" value={queue.failed} />
-          <Metric label="已跳过任务" value={queue.skipped} />
+          <Metric label="累计完成任务" value={queue.completed} />
+          <Metric label="累计失败任务" value={queue.failed} />
+          <Metric label="累计跳过任务" value={queue.skipped} />
         </CardContent>
       </Card>
 
@@ -262,10 +262,10 @@ export function AdminActions({
                       </span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <StageFlag label="Scan" done={item.scanReady} />
-                      <StageFlag label="Analyze" done={item.analysisReady} />
-                      <StageFlag label="Deep Read" done={item.deepReadReady} />
-                      <StageFlag label="Semantic" done={item.semanticReady} />
+                      <StageFlag label="扫描" done={item.scanReady} />
+                      <StageFlag label="分析" done={item.analysisReady} />
+                      <StageFlag label="深读" done={item.deepReadReady} />
+                      <StageFlag label="语义" done={item.semanticReady} />
                     </div>
                     {item.analysisSummary ? (
                       <p className="mt-3 text-sm leading-7 text-muted-foreground">{item.analysisSummary}</p>

@@ -54,10 +54,10 @@ export function CollectionPage({
         <section className="surface-panel rounded-[2rem] p-7 md:p-9">
           <div className="flex flex-wrap items-center gap-2">
             <span className="surface-chip rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Collection
+              聚合页面
             </span>
             <span className="surface-chip rounded-full px-3 py-1 text-xs text-foreground">
-              {bucket.count} projects
+              {bucket.count} 个项目
             </span>
           </div>
           <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
@@ -98,8 +98,8 @@ export function CollectionPage({
                 页面摘要
               </div>
               <div className="space-y-3 text-sm leading-7 text-muted-foreground">
-                <p>当前聚合页围绕“{bucket.name}”组织站内相关项目，适合从一个稳定主题快速浏览、筛选和继续跳转到详情页。</p>
-                <p>页面优先展示已生成中文简介和详情内容的项目，方便快速判断用途、场景和上手方式。</p>
+                <p>当前聚合页围绕“{bucket.name}”组织站内相关项目，适合从稳定主题快速浏览、筛选并继续跳转到详情页。</p>
+                <p>页面优先展示已经完成中文简介或详情内容的项目，便于快速判断用途、场景和上手方式。</p>
               </div>
             </div>
 
@@ -107,7 +107,7 @@ export function CollectionPage({
               <div className="surface-panel rounded-[1.8rem] p-6">
                 <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
                   <BookOpen className="h-4 w-4 text-primary" />
-                  FAQ
+                  常见问题
                 </div>
                 <div className="space-y-4">
                   {faq.map((item) => (
@@ -127,8 +127,8 @@ export function CollectionPage({
               </div>
               <div className="space-y-3 text-sm leading-7 text-muted-foreground">
                 <p>项目列表来自用户自己的 GitHub Star 仓库集合。</p>
-                <p>中文简介和 Wiki 内容基于仓库 README、目录结构与关键文件自动生成。</p>
-                <p>排序默认更偏向高 Star 和已经完成内容生成的项目。</p>
+                <p>中文简介、Wiki 和专题能力来自 README、目录结构、关键文件与语义分析结果。</p>
+                <p>排序默认更偏向高 Star 且内容较完整的项目，方便优先浏览高价值条目。</p>
               </div>
             </div>
           </aside>
@@ -147,7 +147,7 @@ export function CollectionPage({
               每个项目都可以继续进入详情页，查看用途、安装和使用信息。
             </div>
             <div className="surface-chip rounded-[1.4rem] p-5 text-sm leading-7 text-muted-foreground">
-              对搜索引擎来说，这类规则聚合页比普通搜索结果页更稳定，也更容易收录。
+              对搜索引擎来说，这类规则聚合页比普通搜索结果页更稳定，也更容易被收录。
             </div>
           </div>
         </section>

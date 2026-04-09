@@ -208,7 +208,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             href="/admin"
             className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
           >
-            Admin
+            后台
           </Link>
           <ThemeToggle />
         </div>
@@ -247,7 +247,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               {profile ? (
                 <>
                   <div className="space-y-4">
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">GitHub Profile</p>
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">GitHub 档案</p>
                     <div className="flex items-start gap-4">
                       <div
                         role="img"
@@ -291,7 +291,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">GitHub Profile</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">GitHub 档案</p>
                   <p className="text-lg font-medium leading-7 text-foreground">暂时无法读取 Star 用户资料。</p>
                   <p className="text-sm leading-7 text-muted-foreground">
                     但项目、搜索、分类和活动网格仍然可以正常使用。
@@ -309,7 +309,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Visual Explore</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">关系探索</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     项目关系网图谱
                   </h2>
@@ -344,7 +344,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Auto Collections</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">自动专题</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     自动专题页
                   </h2>
@@ -363,7 +363,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     <div className="font-medium">{collection.title}</div>
                     <div className="mt-2 line-clamp-3 leading-6 text-muted-foreground">{collection.description}</div>
                     <div className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      {collection.count} projects
+                      {collection.count} 个项目
                     </div>
                   </Link>
                 ))}
@@ -375,7 +375,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">SEO Entry</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     按项目类型浏览
                   </h2>
@@ -403,7 +403,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">SEO Entry</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     按使用场景浏览
                   </h2>
@@ -431,7 +431,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">SEO Entry</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     按编程语言浏览
                   </h2>
@@ -459,7 +459,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">SEO Entry</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                     按技术标签浏览
                   </h2>
@@ -488,7 +488,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="space-y-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Projects</p>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">项目列表</p>
                 <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                   {query ? `“${query}” 的搜索结果` : '最新同步的项目卡片'}
                 </h2>
@@ -552,7 +552,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <Heart className="h-4 w-4 fill-red-500 text-red-500" />
         </div>
         <span className="inline-flex items-center gap-2">
-          Search, intros, wiki cards
+          搜索、简介与 Wiki 导览
           <ArrowRight className="h-4 w-4" />
         </span>
       </footer>

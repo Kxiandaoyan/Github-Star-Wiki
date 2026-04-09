@@ -1,17 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CollectionPage } from '@/components/seo/CollectionPage';
-import { getProjectsByTopicSlug, getTopicBuckets } from '@/lib/taxonomy';
+import { getProjectsByTopicSlug } from '@/lib/taxonomy';
 
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-export async function generateStaticParams() {
-  return getTopicBuckets(200).map((bucket) => ({
-    slug: bucket.slug,
-  }));
-}
 
 export async function generateMetadata({
   params,
@@ -91,8 +85,8 @@ export default async function TopicCollectionPage({
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Topics', item: `${SITE_URL}/topics/${result.bucket.slug}` },
+        { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: '标签聚合', item: `${SITE_URL}/topics/${result.bucket.slug}` },
       ],
     },
     {

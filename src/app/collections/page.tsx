@@ -43,7 +43,7 @@ export default function CollectionsIndexPage() {
         <section className="surface-panel rounded-[2rem] p-7 md:p-9">
           <div className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground">
             <Layers3 className="h-4 w-4 text-primary" />
-            Collections
+            自动专题
           </div>
           <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
             自动专题聚合页

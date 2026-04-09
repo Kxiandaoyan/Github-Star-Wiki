@@ -31,7 +31,7 @@ export default async function AdminLoginPage({
         <section className="space-y-5">
           <div className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            Admin Console
+            后台控制台
           </div>
           <h1 className="text-4xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
             管理后台配置、提示词和项目内容更新

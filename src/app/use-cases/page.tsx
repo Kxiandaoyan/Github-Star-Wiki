@@ -43,7 +43,7 @@ export default function UseCasesIndexPage() {
         <section className="surface-panel rounded-[2rem] p-7 md:p-9">
           <div className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground">
             <Lightbulb className="h-4 w-4 text-primary" />
-            Use Cases
+            使用场景
           </div>
           <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
             按使用场景浏览

@@ -1,17 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CollectionPage } from '@/components/seo/CollectionPage';
-import { getProjectsByUseCaseSlug, getUseCaseBuckets } from '@/lib/taxonomy';
+import { getProjectsByUseCaseSlug } from '@/lib/taxonomy';
 
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-export async function generateStaticParams() {
-  return getUseCaseBuckets(100).map((bucket) => ({
-    slug: bucket.slug,
-  }));
-}
 
 export async function generateMetadata({
   params,
@@ -63,7 +57,16 @@ export default async function UseCaseCollectionPage({
 
   const title = result.bucket.title;
   const description = result.bucket.description;
-  const faq = result.definition.faq;
+  const faq = [
+    {
+      question: `${result.bucket.name} 场景页会收录什么项目？`,
+      answer: `这里会自动聚合站内已分析完成、并被识别与“${result.bucket.name}”相关的 GitHub Star 项目。`,
+    },
+    {
+      question: '这个页面是怎么生成的？',
+      answer: '页面不是人工维护，而是来自项目分析阶段提取出的 use cases 聚合结果。',
+    },
+  ];
   const jsonLd = [
     {
       '@context': 'https://schema.org',

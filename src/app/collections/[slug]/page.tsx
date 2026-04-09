@@ -7,12 +7,6 @@ export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-export async function generateStaticParams() {
-  return getSpecialCollectionBuckets(100).map((bucket) => ({
-    slug: bucket.slug,
-  }));
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -63,7 +57,16 @@ export default async function SpecialCollectionPage({
 
   const title = result.bucket.title;
   const description = result.bucket.description;
-  const faq = result.definition.faq;
+  const faq = [
+    {
+      question: `${result.bucket.name} 这一类项目会收录什么？`,
+      answer: `这里会自动聚合站内已分析完成、且语义主类被识别为“${result.bucket.name}”的 GitHub Star 项目。`,
+    },
+    {
+      question: '为什么这个专题页不是手工维护的？',
+      answer: '因为它直接来自项目分析结果，会随着站内项目被分析完成而自动出现和更新，不需要单独写文章。',
+    },
+  ];
   const relatedLinks = getSpecialCollectionBuckets(20)
     .filter((item) => item.slug !== result.bucket.slug)
     .slice(0, 3)
@@ -84,8 +87,8 @@ export default async function SpecialCollectionPage({
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Collections', item: `${SITE_URL}/collections` },
+        { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: '专题聚合', item: `${SITE_URL}/collections` },
         { '@type': 'ListItem', position: 3, name: title, item: `${SITE_URL}/collections/${result.bucket.slug}` },
       ],
     },

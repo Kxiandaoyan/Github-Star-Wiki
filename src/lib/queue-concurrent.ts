@@ -21,7 +21,7 @@ import {
 export interface Task {
   id: number;
   project_id: number;
-  task_type: PipelineTaskType | 'generate_all' | 'wiki_doc';
+  task_type: PipelineTaskType;
   priority: number;
   status: string;
   retry_count: number;
@@ -117,11 +117,12 @@ export class ConcurrentQueueProcessor {
         continue;
       }
 
+      const taskLabel = `${task.task_type} project=${task.project_id} queueTask=${task.id}`;
       const apiKey = this.taskNeedsLlm(task.task_type) ? this.getAvailableApiKey() : null;
 
       if (this.taskNeedsLlm(task.task_type) && !apiKey) {
         this.releaseTask(task.id, 10000, '[NO_API_KEY] 当前没有可用的 API Key。');
-        console.log(`[Worker ${workerId}] No available API key. Waiting...`);
+        console.log(`[Worker ${workerId}] ${taskLabel} waiting for an available API key.`);
         await this.sleep(2000);
         continue;
       }
@@ -130,7 +131,7 @@ export class ConcurrentQueueProcessor {
         const outcome = await this.processTask(task, apiKey);
 
         if (outcome === 'skipped') {
-          console.log(`[Worker ${workerId}] Task #${task.id} skipped.`);
+          console.log(`[Worker ${workerId}] ${taskLabel} skipped.`);
           continue;
         }
 
@@ -140,10 +141,10 @@ export class ConcurrentQueueProcessor {
           WHERE id = ?
         `).run(task.id);
 
-        console.log(`[Worker ${workerId}] Task #${task.id} completed.`);
+        console.log(`[Worker ${workerId}] ${taskLabel} completed.`);
       } catch (error) {
         const taskError = error instanceof Error ? error : new Error('Unknown queue task error');
-        console.error(`[Worker ${workerId}] Task #${task.id} failed:`, taskError.message);
+        console.error(`[Worker ${workerId}] ${taskLabel} failed:`, taskError.message);
         await this.handleTaskFailure(task, taskError);
       }
     }
@@ -151,23 +152,10 @@ export class ConcurrentQueueProcessor {
     console.log(`Worker ${workerId} stopped.`);
   }
 
-  private normalizeTaskType(taskType: Task['task_type']): PipelineTaskType | 'unsupported' {
-    if (taskType === 'generate_all') {
-      return 'scan_repo';
-    }
-
-    if (taskType === 'wiki_doc') {
-      return 'unsupported';
-    }
-
-    return taskType;
-  }
-
   private taskNeedsLlm(taskType: Task['task_type']) {
-    const normalizedTaskType = this.normalizeTaskType(taskType);
-    return normalizedTaskType === 'analyze_repo'
-      || normalizedTaskType === 'deep_read_repo'
-      || normalizedTaskType === 'generate_profile';
+    return taskType === 'analyze_repo'
+      || taskType === 'deep_read_repo'
+      || taskType === 'generate_profile';
   }
 
   private getLlmClient(apiKey: ApiKey, taskType: PipelineTaskType) {
@@ -345,13 +333,7 @@ export class ConcurrentQueueProcessor {
       return 'skipped';
     }
 
-    const normalizedTaskType = this.normalizeTaskType(task.task_type);
-
-    if (normalizedTaskType === 'unsupported') {
-      throw new Error(`Unsupported task type: ${task.task_type}`);
-    }
-
-    switch (normalizedTaskType) {
+    switch (task.task_type) {
       case 'scan_repo':
         return this.processScanTask(task, project);
       case 'analyze_repo':
