@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "init-db": "tsx src/lib/init-db.ts"
+    "init-db": "tsx src/lib/init-db.ts",
+    "migrate": "tsx src/scripts/migrate.ts migrate",
+    "migrate:validate": "tsx src/scripts/migrate.ts validate",
+    "migrate:rollback": "tsx src/scripts/migrate.ts rollback",
+    "migrate:version": "tsx src/scripts/migrate.ts version"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.1.8",
