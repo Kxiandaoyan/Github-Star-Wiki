@@ -7,6 +7,8 @@ import type {
 } from './project-analysis';
 import { maskApiKey } from './model-runtime';
 import {
+  getBooleanSetting,
+  getNumberSetting,
   getPromptValueFromSnapshot,
   PipelinePromptSnapshot,
   renderPromptTemplate,
@@ -105,6 +107,19 @@ function extractErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function getNestedErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+
+  const parsed = error as { code?: unknown; cause?: unknown };
+  if (typeof parsed.code === 'string' && parsed.code.trim()) {
+    return parsed.code.trim();
+  }
+
+  return getNestedErrorCode(parsed.cause);
 }
 
 function normalizeApiFormat(value: string | undefined, baseUrl: string): LLMApiFormat {
@@ -485,9 +500,6 @@ function normalizeGeneratedProject(projectName: string, parsed: {
 
 export class LLMClient {
   private config: LLMConfig;
-  private static readonly REQUEST_TIMEOUT = 60000;
-  private static readonly MAX_RETRIES = 3;
-  private static readonly BASE_DELAY = 2000;
 
   constructor(config: LLMConfig) {
     this.config = {
@@ -505,12 +517,59 @@ export class LLMClient {
     return this.config.apiFormat === 'openai' && /stepfun\.com/i.test(this.config.baseUrl);
   }
 
+  private getRequestTimeoutMs() {
+    return Math.max(10000, getNumberSetting('LLM_REQUEST_TIMEOUT_MS', 60000));
+  }
+
+  private getMaxRetries() {
+    return Math.max(0, getNumberSetting('LLM_REQUEST_MAX_RETRIES', 3));
+  }
+
+  private getRetryBaseDelayMs() {
+    return Math.max(200, getNumberSetting('LLM_RETRY_BASE_DELAY_MS', 2000));
+  }
+
+  private shouldRetryReasoningOnly() {
+    return getBooleanSetting('LLM_REASONING_RETRY_ENABLED', true);
+  }
+
+  private getStageMaxTokens(settingKey: string, fallback: number) {
+    return Math.max(256, getNumberSetting(settingKey, fallback));
+  }
+
+  private getDeepReadFileCharLimit() {
+    return Math.max(800, getNumberSetting('LLM_DEEP_READ_FILE_CHAR_LIMIT', 3200));
+  }
+
+  private getDeepReadTotalCharLimit() {
+    return Math.max(2000, getNumberSetting('LLM_DEEP_READ_TOTAL_CHAR_LIMIT', 14000));
+  }
+
   private isRetryableError(error: unknown): boolean {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status && status >= 500) return true;
       if (!error.response && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.code === 'ERR_NETWORK')) return true;
     }
+
+    if (error instanceof Error) {
+      const nestedCode = getNestedErrorCode(error);
+      const message = error.message.toLowerCase();
+
+      if (nestedCode && ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(nestedCode)) {
+        return true;
+      }
+
+      if (
+        message.includes('connection error') ||
+        message.includes('fetch failed') ||
+        message.includes('timed out') ||
+        message.includes('timeout')
+      ) {
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -519,12 +578,13 @@ export class LLMClient {
   }
 
   private getRequestLogLabel(attempt: number, messages: ChatMessage[]) {
+    const maxRetries = this.getMaxRetries();
     return [
       `format=${this.config.apiFormat}`,
       `model=${this.config.model}`,
       `baseUrl=${this.config.baseUrl}`,
       `apiKey=${maskApiKey(this.config.apiKey)}`,
-      `attempt=${attempt + 1}/${LLMClient.MAX_RETRIES + 1}`,
+      `attempt=${attempt + 1}/${maxRetries + 1}`,
       `messages=${messages.length}`,
     ].join(' ');
   }
@@ -537,11 +597,13 @@ export class LLMClient {
     } = {}
   ): Promise<string> {
     const { temperature = 0.4, maxTokens = 2000 } = options;
+    const maxRetries = this.getMaxRetries();
+    const requestTimeoutMs = this.getRequestTimeoutMs();
     let lastError: unknown;
 
-    for (let attempt = 0; attempt <= LLMClient.MAX_RETRIES; attempt += 1) {
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       if (attempt > 0) {
-        const delay = LLMClient.BASE_DELAY * Math.pow(2, attempt - 1);
+        const delay = this.getRetryBaseDelayMs() * Math.pow(2, attempt - 1);
         console.log(`LLM request retry #${attempt} after ${delay}ms...`);
         await this.sleep(delay);
       }
@@ -575,7 +637,7 @@ export class LLMClient {
                 'anthropic-version': '2023-06-01',
                 'x-api-key': this.config.apiKey,
               },
-              timeout: LLMClient.REQUEST_TIMEOUT,
+              timeout: requestTimeoutMs,
             }
           );
 
@@ -596,7 +658,7 @@ export class LLMClient {
         const client = new OpenAI({
           apiKey: this.config.apiKey,
           baseURL: this.config.baseUrl,
-          timeout: LLMClient.REQUEST_TIMEOUT,
+          timeout: requestTimeoutMs,
           maxRetries: 0,
         });
 
@@ -616,6 +678,7 @@ export class LLMClient {
 
         if (
           !parsedResponse.content &&
+          this.shouldRetryReasoningOnly() &&
           this.isStepFunOpenAICompatible &&
           parsedResponse.reasoning &&
           parsedResponse.finishReason === 'length'
@@ -658,7 +721,7 @@ export class LLMClient {
         console.warn(
           `[LLM Request] failed ${this.getRequestLogLabel(attempt, messages)} reason=${extractErrorMessage(error, 'LLM request failed')}`
         );
-        if (attempt < LLMClient.MAX_RETRIES && this.isRetryableError(error)) {
+        if (attempt < maxRetries && this.isRetryableError(error)) {
           continue;
         }
         break;
@@ -684,7 +747,7 @@ export class LLMClient {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      { temperature: 0, maxTokens: 3200 }
+      { temperature: 0, maxTokens: this.getStageMaxTokens('LLM_JSON_REPAIR_MAX_TOKENS', 3200) }
     );
   }
 
@@ -710,7 +773,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.1, maxTokens: 1800 }
+        { temperature: 0.1, maxTokens: this.getStageMaxTokens('LLM_ANALYSIS_MAX_TOKENS', 1800) }
       );
 
       try {
@@ -746,10 +809,12 @@ export class LLMClient {
     promptSnapshot: PipelinePromptSnapshot | null = null
   ): Promise<RepositoryDeepReadResult> {
     const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_SYSTEM');
+    const deepReadFileCharLimit = this.getDeepReadFileCharLimit();
+    const deepReadTotalCharLimit = this.getDeepReadTotalCharLimit();
     const selectedFileContents = files
-      .map((file) => `## ${file.path}\n\`\`\`\n${file.content.slice(0, 3200)}\n\`\`\``)
+      .map((file) => `## ${file.path}\n\`\`\`\n${file.content.slice(0, deepReadFileCharLimit)}\n\`\`\``)
       .join('\n\n')
-      .slice(0, 14000);
+      .slice(0, deepReadTotalCharLimit);
     const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_USER'), {
       projectName,
       description: description || '无',
@@ -774,7 +839,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.1, maxTokens: 2200 }
+        { temperature: 0.1, maxTokens: this.getStageMaxTokens('LLM_DEEP_READ_MAX_TOKENS', 2200) }
       );
 
       try {
@@ -827,7 +892,7 @@ export class LLMClient {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      { temperature: 0.2, maxTokens: 2800 }
+      { temperature: 0.2, maxTokens: this.getStageMaxTokens('LLM_FALLBACK_MAX_TOKENS', 2800) }
     );
   }
 
@@ -860,7 +925,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.35, maxTokens: 3200 }
+        { temperature: 0.35, maxTokens: this.getStageMaxTokens('LLM_CONTENT_MAX_TOKENS', 3200) }
       );
 
       try {
@@ -982,7 +1047,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.2, maxTokens: 2200 }
+        { temperature: 0.2, maxTokens: this.getStageMaxTokens('LLM_SEO_MAX_TOKENS', 2200) }
       );
 
       try {
