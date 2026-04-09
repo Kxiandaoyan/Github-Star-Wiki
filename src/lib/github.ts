@@ -95,6 +95,17 @@ interface GitHubUserProfile {
   blog: string | null;
 }
 
+interface SyncResult {
+  total: number;
+  new: number;
+  updated: number;
+  queued: number;
+  alreadyQueued: number;
+  alreadyGenerated: number;
+}
+
+let syncInFlight: Promise<SyncResult> | null = null;
+
 function getGitHubConfig() {
   return {
     username: getSettingValue('GITHUB_USERNAME'),
@@ -466,7 +477,13 @@ export async function fetchRepositoryContext(fullName: string): Promise<{ readme
   };
 }
 
-export async function syncStarredRepos() {
+export async function syncStarredRepos(): Promise<SyncResult> {
+  if (syncInFlight) {
+    console.log('GitHub sync already in progress. Reusing the current run.');
+    return syncInFlight;
+  }
+
+  syncInFlight = (async () => {
   const { username: githubUsername, token: githubToken } = getGitHubConfig();
 
   if (!githubUsername && !githubToken) {
@@ -593,7 +610,12 @@ export async function syncStarredRepos() {
   } catch (error) {
     console.error('GitHub sync failed:', error);
     throw error;
+  } finally {
+    syncInFlight = null;
   }
+  })();
+
+  return syncInFlight;
 }
 
 export function getProjects(options: {

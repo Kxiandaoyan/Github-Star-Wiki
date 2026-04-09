@@ -26,6 +26,18 @@ function getSyncSchedule(intervalMinutes: number) {
   };
 }
 
+async function runSyncJob(trigger: 'startup' | 'schedule' | 'reload') {
+  console.log(`Running ${trigger} GitHub sync job...`);
+  try {
+    const result = await syncStarredRepos();
+    console.log(
+      `GitHub sync completed via ${trigger}. total=${result.total}, new=${result.new}, updated=${result.updated}, queued=${result.queued}.`
+    );
+  } catch (error) {
+    console.error(`${trigger} sync failed:`, error);
+  }
+}
+
 export function initApp() {
   console.log('Initializing star-wiki application...');
 
@@ -42,16 +54,12 @@ export function initApp() {
   const schedule = getSyncSchedule(intervalMinutes);
 
   cronJob = cron.schedule(schedule.expression, async () => {
-    console.log('Running scheduled GitHub sync job...');
-    try {
-      await syncStarredRepos();
-    } catch (error) {
-      console.error('Scheduled sync failed:', error);
-    }
+    await runSyncJob('schedule');
   });
 
   console.log(`Scheduled sync started. Interval: ${schedule.label}.`);
   appInitialized = true;
+  void runSyncJob('startup');
 }
 
 export async function cleanup() {
@@ -82,13 +90,9 @@ export async function reloadRuntimeServices() {
   const schedule = getSyncSchedule(intervalMinutes);
 
   cronJob = cron.schedule(schedule.expression, async () => {
-    console.log('Running scheduled GitHub sync job...');
-    try {
-      await syncStarredRepos();
-    } catch (error) {
-      console.error('Scheduled sync failed:', error);
-    }
+    await runSyncJob('schedule');
   });
 
   console.log(`Runtime services reloaded. Interval: ${schedule.label}, concurrency: ${concurrency}.`);
+  void runSyncJob('reload');
 }
