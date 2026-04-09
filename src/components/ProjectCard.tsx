@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { ArrowUpRight, LoaderCircle, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
