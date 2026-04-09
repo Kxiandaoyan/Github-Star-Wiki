@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 interface Particle {
   x: number;
@@ -15,8 +15,17 @@ const PARTICLE_COUNT = 42;
 
 export function BackgroundParticles() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -104,7 +113,11 @@ export function BackgroundParticles() {
       window.cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [mounted]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 -z-10 opacity-70" aria-hidden="true" />;
 }
