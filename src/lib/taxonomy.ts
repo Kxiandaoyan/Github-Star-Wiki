@@ -355,11 +355,12 @@ export function parseTopics(topics: string | null | undefined) {
 
 export function slugifyTaxonomyValue(value: string) {
   return value
+    .normalize('NFKC')
     .trim()
     .toLowerCase()
     .replace(/\+/g, ' plus ')
     .replace(/#/g, ' sharp ')
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
@@ -438,23 +439,6 @@ function getSemanticProfileFromProject(project: SpecialCollectionProjectRow) {
     });
 }
 
-function normalizeUseCaseKey(value: string) {
-  return normalizeText(value);
-}
-
-function dedupeSpecialCollectionBuckets(items: SpecialCollectionBucket[]) {
-  const seen = new Set<string>();
-
-  return items.filter((item) => {
-    if (!item.slug || seen.has(item.slug)) {
-      return false;
-    }
-
-    seen.add(item.slug);
-    return true;
-  });
-}
-
 function toProjectListItem(project: SpecialCollectionProjectRow): ProjectListItem {
   return {
     id: project.id,
@@ -472,6 +456,24 @@ function getProjectsForDefinition(definition: SpecialCollectionDefinition) {
   return getProjectsBase()
     .filter((project) => definition.matches(project, buildSignals(project)))
     .map(toProjectListItem);
+}
+
+function getUseCaseBucketsFromDefinitions() {
+  return useCaseDefinitions
+    .map((definition) => {
+      const count = getProjectsForDefinition(definition).length;
+
+      return {
+        name: definition.name,
+        slug: definition.slug,
+        count,
+        title: definition.title,
+        description: definition.description,
+        href: `/use-cases/${definition.slug}`,
+      } satisfies SpecialCollectionBucket;
+    })
+    .filter((bucket) => bucket.count > 0)
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
 }
 
 void specialCollectionDefinitions;
@@ -607,50 +609,16 @@ export function getProjectsByProjectTypeSlug(slug: string) {
 }
 
 export function getUseCaseBuckets(limit = 12): SpecialCollectionBucket[] {
-  const projects = getProjectsBase();
-  const buckets = new Map<string, { name: string; count: number }>();
-
-  projects.forEach((project) => {
-    getSemanticProfileFromProject(project).useCases.forEach((useCase) => {
-      const name = useCase.trim();
-      const key = normalizeUseCaseKey(name);
-      if (!name || !key) {
-        return;
-      }
-
-      const current = buckets.get(key);
-      buckets.set(key, {
-        name: current?.name || name,
-        count: (current?.count || 0) + 1,
-      });
-    });
-  });
-
-  return dedupeSpecialCollectionBuckets(
-    [...buckets.entries()]
-      .map(([, value]) => ({
-        name: value.name,
-        slug: slugifyTaxonomyValue(value.name),
-        count: value.count,
-        title: `${value.name} 相关开源项目`,
-        description: `自动聚合站内已分析完成、并被识别与“${value.name}”相关的 GitHub Star 项目。`,
-        href: `/use-cases/${slugifyTaxonomyValue(value.name)}`,
-      }))
-      .filter((item) => item.name.trim().length > 0 && item.slug.length > 0)
-      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
-  ).slice(0, limit);
+  return getUseCaseBucketsFromDefinitions().slice(0, limit);
 }
 
 export function getProjectsByUseCaseSlug(slug: string) {
-  const bucket = getUseCaseBuckets(500).find((item) => item.slug === slug);
-  if (!bucket) {
+  const definition = useCaseDefinitions.find((item) => item.slug === slug);
+  if (!definition) {
     return null;
   }
 
-  const normalizedName = normalizeUseCaseKey(bucket.name);
-  const projects = getProjectsBase()
-    .filter((project) => getSemanticProfileFromProject(project).useCases.some((item) => normalizeUseCaseKey(item) === normalizedName))
-    .map(toProjectListItem);
+  const projects = getProjectsForDefinition(definition);
 
   if (projects.length === 0) {
     return null;
@@ -658,9 +626,13 @@ export function getProjectsByUseCaseSlug(slug: string) {
 
   return {
     bucket: {
-      ...bucket,
+      name: definition.name,
+      slug: definition.slug,
       count: projects.length,
-    },
+      title: definition.title,
+      description: definition.description,
+      href: `/use-cases/${definition.slug}`,
+    } satisfies SpecialCollectionBucket,
     projects,
   };
 }
@@ -729,24 +701,18 @@ export function getMatchingUseCasesForProject(projectId: number) {
     return [] as SpecialCollectionBucket[];
   }
 
-  return dedupeSpecialCollectionBuckets(
-    getSemanticProfileFromProject(project).useCases
-      .map((useCase) => useCase.trim())
-      .filter((useCase) => useCase.length > 0 && normalizeUseCaseKey(useCase).length > 0)
-      .map((useCase) => {
-        const slug = slugifyTaxonomyValue(useCase);
+  const signals = buildSignals(project);
 
-        return {
-          name: useCase,
-          slug,
-          count: 0,
-          title: `${useCase} 相关开源项目`,
-          description: `查看站内与“${useCase}”相关的已分析 GitHub Star 项目。`,
-          href: `/use-cases/${slug}`,
-        };
-      })
-      .filter((item) => item.slug.length > 0)
-  );
+  return useCaseDefinitions
+    .filter((definition) => definition.matches(project, signals))
+    .map((definition) => ({
+      name: definition.name,
+      slug: definition.slug,
+      count: 0,
+      title: definition.title,
+      description: definition.description,
+      href: `/use-cases/${definition.slug}`,
+    } satisfies SpecialCollectionBucket));
 }
 
 export function getProjectTypeLinkForProject(projectId: number) {
