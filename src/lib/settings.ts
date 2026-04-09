@@ -20,6 +20,26 @@ export interface SettingDefinition {
   placeholder?: string;
 }
 
+export const PIPELINE_PROMPT_KEYS = [
+  'PROMPT_CONTENT_SYSTEM',
+  'PROMPT_CONTENT_USER',
+  'PROMPT_CONTENT_OUTPUT_FORMAT',
+  'PROMPT_JSON_REPAIR_SYSTEM',
+  'PROMPT_JSON_REPAIR_USER',
+  'PROMPT_FALLBACK_SYSTEM',
+  'PROMPT_FALLBACK_USER',
+  'PROMPT_SEO_SYSTEM',
+  'PROMPT_SEO_USER',
+  'PROMPT_REPO_ANALYSIS_SYSTEM',
+  'PROMPT_REPO_ANALYSIS_USER',
+  'PROMPT_DEEP_READ_SYSTEM',
+  'PROMPT_DEEP_READ_USER',
+] as const;
+
+export type PipelinePromptKey = typeof PIPELINE_PROMPT_KEYS[number];
+
+export type PipelinePromptSnapshot = Record<PipelinePromptKey, string>;
+
 export interface AdminSettingItem extends SettingDefinition {
   value: string;
   source: 'database' | 'environment' | 'default';
@@ -641,6 +661,20 @@ export function getSettingsByCategory() {
       prompts: [],
     }
   );
+}
+
+export function createPipelinePromptSnapshot(): PipelinePromptSnapshot {
+  return PIPELINE_PROMPT_KEYS.reduce((snapshot, key) => {
+    snapshot[key] = getSettingValue(key);
+    return snapshot;
+  }, {} as PipelinePromptSnapshot);
+}
+
+export function getPromptValueFromSnapshot(
+  snapshot: PipelinePromptSnapshot | null | undefined,
+  key: PipelinePromptKey
+) {
+  return snapshot?.[key] ?? getSettingValue(key);
 }
 
 export function renderPromptTemplate(template: string, variables: Record<string, string>) {

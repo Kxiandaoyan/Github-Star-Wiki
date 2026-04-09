@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import db from './db';
-import { RepositoryScanResult } from './project-analysis';
+import { RepositoryRef, RepositoryScanResult } from './project-analysis';
 import { getNumberSetting, getSettingValue } from './settings';
 import { enqueueGenerateTask } from './task-queue';
 
@@ -31,6 +31,20 @@ interface StarredRepoResponse {
 interface TreeItem {
   path: string;
   type: 'blob' | 'tree';
+}
+
+interface GitBranchResponse {
+  name: string;
+  commit: {
+    sha: string;
+  };
+}
+
+interface GitCommitResponse {
+  sha: string;
+  tree: {
+    sha: string;
+  };
 }
 
 interface ProjectRecord {
@@ -158,13 +172,14 @@ export async function fetchGitHubProfile() {
   }
 }
 
-async function getReadmeContent(fullName: string): Promise<string> {
+async function getReadmeContent(fullName: string, ref?: string): Promise<string> {
   try {
     const githubApi = createGithubApi();
     const response = await githubApi.get<string>(`/repos/${fullName}/readme`, {
       headers: {
         Accept: 'application/vnd.github.raw+json',
       },
+      params: ref ? { ref } : undefined,
       responseType: 'text',
       transformResponse: [(data) => data],
     });
@@ -180,13 +195,14 @@ async function getReadmeContent(fullName: string): Promise<string> {
   }
 }
 
-async function getFileContent(fullName: string, filePath: string): Promise<string> {
+async function getFileContent(fullName: string, filePath: string, ref?: string): Promise<string> {
   try {
     const githubApi = createGithubApi();
     const response = await githubApi.get<string>(`/repos/${fullName}/contents/${filePath}`, {
       headers: {
         Accept: 'application/vnd.github.raw+json',
       },
+      params: ref ? { ref } : undefined,
       responseType: 'text',
       transformResponse: [(data) => data],
     });
@@ -231,11 +247,31 @@ function buildDirectoryStructure(tree: TreeItem[], maxDepth = 4) {
     .join('\n');
 }
 
-async function getRepositoryTree(fullName: string, defaultBranch: string) {
+async function getRepositoryRef(fullName: string, defaultBranch: string): Promise<RepositoryRef | null> {
+  try {
+    const githubApi = createGithubApi();
+    const branchResponse = await githubApi.get<GitBranchResponse>(
+      `/repos/${fullName}/branches/${encodeURIComponent(defaultBranch)}`
+    );
+    const commitSha = branchResponse.data.commit.sha;
+    const commitResponse = await githubApi.get<GitCommitResponse>(`/repos/${fullName}/git/commits/${commitSha}`);
+
+    return {
+      defaultBranch,
+      commitSha,
+      treeSha: commitResponse.data.tree.sha,
+    };
+  } catch (error) {
+    console.warn(getGitHubErrorMessage(error, `Failed to resolve pinned repository ref for ${fullName}`));
+    return null;
+  }
+}
+
+async function getRepositoryTree(fullName: string, ref: string) {
   try {
     const githubApi = createGithubApi();
     const response = await githubApi.get<{ tree: TreeItem[]; truncated: boolean }>(
-      `/repos/${fullName}/git/trees/${encodeURIComponent(defaultBranch)}?recursive=1`
+      `/repos/${fullName}/git/trees/${encodeURIComponent(ref)}?recursive=1`
     );
 
     return response.data;
@@ -366,13 +402,13 @@ function formatInterestingFiles(files: Array<{ path: string; content: string }>)
     .join('\n\n');
 }
 
-export async function fetchRepositoryFiles(fullName: string, filePaths: string[]) {
+export async function fetchRepositoryFiles(fullName: string, filePaths: string[], ref?: string) {
   const uniquePaths = [...new Set(filePaths.filter(Boolean))].slice(0, getNumberSetting('ANALYSIS_FILE_LIMIT', 8));
 
   const files = await Promise.all(
     uniquePaths.map(async (path) => ({
       path,
-      content: await getFileContent(fullName, path),
+      content: await getFileContent(fullName, path, ref),
     }))
   );
 
@@ -386,15 +422,23 @@ export async function fetchRepositoryFiles(fullName: string, filePaths: string[]
 
 export async function fetchRepositoryScan(fullName: string): Promise<RepositoryScanResult> {
   const metadata = await getRepositoryMetadata(fullName);
+  const defaultBranch = metadata.default_branch || 'HEAD';
+  const repositoryRef = await getRepositoryRef(fullName, defaultBranch);
+  const treeRef = repositoryRef?.treeSha || defaultBranch;
+  const fileRef = repositoryRef?.commitSha;
   const [readme, treeResponse] = await Promise.all([
-    getReadmeContent(fullName),
-    getRepositoryTree(fullName, metadata.default_branch || 'HEAD'),
+    getReadmeContent(fullName, fileRef),
+    getRepositoryTree(fullName, treeRef),
   ]);
 
   const analysisFileLimit = Math.max(4, getNumberSetting('ANALYSIS_FILE_LIMIT', 8));
   const candidateFiles = selectCandidateFiles(treeResponse.tree, analysisFileLimit);
   const documentationFiles = selectDocumentationFiles(treeResponse.tree, 6);
-  const factSourceFiles = await fetchRepositoryFiles(fullName, candidateFiles.slice(0, Math.min(candidateFiles.length, 4)));
+  const factSourceFiles = await fetchRepositoryFiles(
+    fullName,
+    candidateFiles.slice(0, Math.min(candidateFiles.length, 4)),
+    fileRef
+  );
   const packageFacts = factSourceFiles.find((file) => file.path === 'package.json')?.content || '';
 
   return {
@@ -408,6 +452,7 @@ export async function fetchRepositoryScan(fullName: string): Promise<RepositoryS
       .join('\n\n'),
     candidateFiles,
     documentationFiles,
+    repositoryRef,
   };
 }
 

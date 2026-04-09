@@ -11,7 +11,7 @@ import {
   saveProjectSemantic,
 } from './project-analysis';
 import { deriveProjectSemanticProfile } from './semantic-profile';
-import { getNumberSetting, getSettingValue } from './settings';
+import { createPipelinePromptSnapshot, getNumberSetting, getSettingValue } from './settings';
 import {
   enqueueTask,
   hasGeneratedProjectContent,
@@ -217,11 +217,17 @@ export class ConcurrentQueueProcessor {
   private claimNextTask() {
     const claim = db.transaction(() => {
       const nextTask = db.prepare(`
-        SELECT id
-        FROM task_queue
-        WHERE status = 'pending'
-          AND COALESCE(available_at, CURRENT_TIMESTAMP) <= CURRENT_TIMESTAMP
-        ORDER BY priority ASC, available_at ASC, created_at ASC
+        SELECT pending_task.id
+        FROM task_queue pending_task
+        WHERE pending_task.status = 'pending'
+          AND COALESCE(pending_task.available_at, CURRENT_TIMESTAMP) <= CURRENT_TIMESTAMP
+          AND NOT EXISTS (
+            SELECT 1
+            FROM task_queue processing_task
+            WHERE processing_task.project_id = pending_task.project_id
+              AND processing_task.status = 'processing'
+          )
+        ORDER BY pending_task.priority ASC, pending_task.available_at ASC, pending_task.created_at ASC
         LIMIT 1
       `).get() as { id: number } | undefined;
 
@@ -364,6 +370,7 @@ export class ConcurrentQueueProcessor {
 
   private async processScanTask(task: Task, project: ProjectRecord): Promise<TaskProcessOutcome> {
     const scan = await fetchRepositoryScan(project.full_name);
+    scan.promptSnapshot = createPipelinePromptSnapshot();
 
     if (!this.hasEnoughContext(project, scan)) {
       this.markTaskSkipped(task.id, project.id, '仓库上下文信息不足，已跳过生成。');
@@ -407,8 +414,9 @@ export class ConcurrentQueueProcessor {
       ...artifacts.scan.candidateFiles,
       ...artifacts.scan.documentationFiles,
     ];
+    const pinnedCommitSha = artifacts.scan.repositoryRef?.commitSha;
 
-    const files = await fetchRepositoryFiles(project.full_name, fileCandidates);
+    const files = await fetchRepositoryFiles(project.full_name, fileCandidates, pinnedCommitSha);
     if (files.length === 0) {
       saveProjectDeepRead(project.id, {
         keyFileSummaries: [],
@@ -439,7 +447,8 @@ export class ConcurrentQueueProcessor {
         shouldGenerateMindMap: false,
         confidence: 'low',
       },
-      files
+      files,
+      artifacts.scan.promptSnapshot || null
     );
 
     saveProjectDeepRead(project.id, deepRead);
@@ -468,7 +477,8 @@ export class ConcurrentQueueProcessor {
       artifacts.scan.structure,
       artifacts.scan.facts,
       repositoryAnalysis,
-      repositoryEvidence
+      repositoryEvidence,
+      artifacts.scan.promptSnapshot || null
     );
 
     this.saveGeneratedProject(project.id, result);

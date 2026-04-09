@@ -1,5 +1,12 @@
 import db from './db';
 import type { ProjectSemanticProfile } from './semantic-profile';
+import type { PipelinePromptSnapshot } from './settings';
+
+export interface RepositoryRef {
+  defaultBranch: string;
+  commitSha: string;
+  treeSha: string;
+}
 
 export interface RepositoryScanResult {
   readme: string;
@@ -7,6 +14,8 @@ export interface RepositoryScanResult {
   facts: string;
   candidateFiles: string[];
   documentationFiles: string[];
+  repositoryRef?: RepositoryRef | null;
+  promptSnapshot?: PipelinePromptSnapshot | null;
 }
 
 export interface RepositoryAnalysisResult {

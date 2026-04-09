@@ -5,7 +5,11 @@ import type {
   RepositoryDeepReadResult,
   RepositoryScanResult,
 } from './project-analysis';
-import { getSettingValue, renderPromptTemplate } from './settings';
+import {
+  getPromptValueFromSnapshot,
+  PipelinePromptSnapshot,
+  renderPromptTemplate,
+} from './settings';
 import {
   buildFallbackSeoDescription,
   buildFallbackSeoTitle,
@@ -564,8 +568,12 @@ export class LLMClient {
   }
 
   private async repairJsonResponse(rawText: string) {
-    const systemPrompt = getSettingValue('PROMPT_JSON_REPAIR_SYSTEM');
-    const userPrompt = renderPromptTemplate(getSettingValue('PROMPT_JSON_REPAIR_USER'), {
+    return this.repairJsonResponseWithSnapshot(rawText, null);
+  }
+
+  private async repairJsonResponseWithSnapshot(rawText: string, promptSnapshot: PipelinePromptSnapshot | null) {
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_JSON_REPAIR_SYSTEM');
+    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_JSON_REPAIR_USER'), {
       rawText,
     });
 
@@ -583,8 +591,9 @@ export class LLMClient {
     description: string | null,
     scan: RepositoryScanResult
   ): Promise<RepositoryAnalysisResult> {
-    const systemPrompt = getSettingValue('PROMPT_REPO_ANALYSIS_SYSTEM');
-    const userPrompt = renderPromptTemplate(getSettingValue('PROMPT_REPO_ANALYSIS_USER'), {
+    const promptSnapshot = scan.promptSnapshot || null;
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_REPO_ANALYSIS_SYSTEM');
+    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_REPO_ANALYSIS_USER'), {
       projectName,
       description: description || '无',
       readmeContent: scan.readme.slice(0, 4500) || '无 README 内容',
@@ -605,7 +614,7 @@ export class LLMClient {
       try {
         return normalizeRepositoryAnalysis(parseJsonFromText(result), projectName);
       } catch {
-        const repaired = await this.repairJsonResponse(result);
+        const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         return normalizeRepositoryAnalysis(parseJsonFromText(repaired), projectName);
       }
     } catch {
@@ -628,14 +637,15 @@ export class LLMClient {
     projectName: string,
     description: string | null,
     analysis: RepositoryAnalysisResult,
-    files: Array<{ path: string; content: string }>
+    files: Array<{ path: string; content: string }>,
+    promptSnapshot: PipelinePromptSnapshot | null = null
   ): Promise<RepositoryDeepReadResult> {
-    const systemPrompt = getSettingValue('PROMPT_DEEP_READ_SYSTEM');
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_SYSTEM');
     const selectedFileContents = files
       .map((file) => `## ${file.path}\n\`\`\`\n${file.content.slice(0, 3200)}\n\`\`\``)
       .join('\n\n')
       .slice(0, 14000);
-    const userPrompt = renderPromptTemplate(getSettingValue('PROMPT_DEEP_READ_USER'), {
+    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_USER'), {
       projectName,
       description: description || '无',
       repositoryAnalysis: JSON.stringify(analysis, null, 2),
@@ -665,7 +675,7 @@ export class LLMClient {
       try {
         return normalizeRepositoryDeepRead(parseJsonFromText(result));
       } catch {
-        const repaired = await this.repairJsonResponse(result);
+        const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         return normalizeRepositoryDeepRead(parseJsonFromText(repaired));
       }
     } catch {
@@ -690,10 +700,11 @@ export class LLMClient {
     codeStructure: string,
     repositoryFacts = '',
     repositoryAnalysis = '',
-    deepReadEvidence = ''
+    deepReadEvidence = '',
+    promptSnapshot: PipelinePromptSnapshot | null = null
   ) {
-    const systemPrompt = getSettingValue('PROMPT_FALLBACK_SYSTEM');
-    const userPrompt = renderPromptTemplate(getSettingValue('PROMPT_FALLBACK_USER'), {
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_FALLBACK_SYSTEM');
+    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_FALLBACK_USER'), {
       projectName,
       description: description || '无',
       readmeContent: readmeContent.slice(0, 5000) || '无 README 内容',
@@ -719,10 +730,11 @@ export class LLMClient {
     codeStructure: string,
     repositoryFacts = '',
     repositoryAnalysis = '',
-    deepReadEvidence = ''
+    deepReadEvidence = '',
+    promptSnapshot: PipelinePromptSnapshot | null = null
   ): Promise<GeneratedProjectResult> {
-    const systemPrompt = getSettingValue('PROMPT_CONTENT_SYSTEM');
-    const contentPrompt = renderPromptTemplate(getSettingValue('PROMPT_CONTENT_USER'), {
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_CONTENT_SYSTEM');
+    const contentPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_CONTENT_USER'), {
       projectName,
       description: description || '无',
       readmeContent: readmeContent.slice(0, 4500) || '无 README 内容',
@@ -731,7 +743,7 @@ export class LLMClient {
       repositoryAnalysis: repositoryAnalysis.slice(0, 5000) || '无仓库分析摘要',
       deepReadEvidence: deepReadEvidence.slice(0, 7000) || '无深读代码证据',
     });
-    const outputFormatPrompt = getSettingValue('PROMPT_CONTENT_OUTPUT_FORMAT');
+    const outputFormatPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_CONTENT_OUTPUT_FORMAT');
     const userPrompt = [contentPrompt, outputFormatPrompt].filter(Boolean).join('\n\n');
 
     const result = await this.chat(
@@ -756,7 +768,7 @@ export class LLMClient {
       return normalizeGeneratedProject(projectName, parsed);
     } catch {
       try {
-        const repaired = await this.repairJsonResponse(result);
+        const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         const repairedParsed = parseJsonFromText(repaired) as {
           oneLineIntro?: unknown;
           chineseIntro?: unknown;
@@ -776,7 +788,8 @@ export class LLMClient {
           codeStructure,
           repositoryFacts,
           repositoryAnalysis,
-          deepReadEvidence
+          deepReadEvidence,
+          promptSnapshot
         );
         const fallbackParsed = parseJsonFromText(fallbackText) as {
           oneLineIntro?: unknown;
@@ -802,10 +815,11 @@ export class LLMClient {
     repositoryFacts: string,
     contentResult: GeneratedContentResult,
     repositoryAnalysis = '',
-    deepReadEvidence = ''
+    deepReadEvidence = '',
+    promptSnapshot: PipelinePromptSnapshot | null = null
   ): Promise<GeneratedSeoResult> {
-    const systemPrompt = getSettingValue('PROMPT_SEO_SYSTEM');
-    const userPrompt = renderPromptTemplate(getSettingValue('PROMPT_SEO_USER'), {
+    const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_SEO_SYSTEM');
+    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_SEO_USER'), {
       projectName,
       description: description || '无',
       oneLineIntro: contentResult.oneLineIntro,
@@ -836,7 +850,7 @@ export class LLMClient {
         };
         return normalizeGeneratedSeo(projectName, contentResult, parsed);
       } catch {
-        const repaired = await this.repairJsonResponse(result);
+        const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         const parsed = parseJsonFromText(repaired) as {
           projectType?: unknown;
           seoTitle?: unknown;
