@@ -261,6 +261,37 @@ function tryParseJsonFromText(text: string) {
   }
 }
 
+function getUtf8ByteLength(value: string) {
+  return Buffer.byteLength(value, 'utf8');
+}
+
+function trimTextToUtf8Bytes(value: string, maxBytes: number) {
+  if (maxBytes <= 0) {
+    return '';
+  }
+
+  if (getUtf8ByteLength(value) <= maxBytes) {
+    return value;
+  }
+
+  let end = value.length;
+  let trimmed = value;
+
+  while (end > 0) {
+    end = Math.floor(end * 0.8);
+    trimmed = value.slice(0, end);
+    if (getUtf8ByteLength(trimmed) <= maxBytes) {
+      break;
+    }
+  }
+
+  while (trimmed && getUtf8ByteLength(trimmed) > maxBytes) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed;
+}
+
 function normalizeTextField(value: unknown, fallback: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
@@ -500,6 +531,7 @@ function normalizeGeneratedProject(projectName: string, parsed: {
 
 export class LLMClient {
   private config: LLMConfig;
+  private static readonly DEEP_READ_MAX_REQUEST_BYTES = 256 * 1024;
 
   constructor(config: LLMConfig) {
     this.config = {
@@ -811,11 +843,59 @@ export class LLMClient {
     const systemPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_SYSTEM');
     const deepReadFileCharLimit = this.getDeepReadFileCharLimit();
     const deepReadTotalCharLimit = this.getDeepReadTotalCharLimit();
-    const selectedFileContents = files
-      .map((file) => `## ${file.path}\n\`\`\`\n${file.content.slice(0, deepReadFileCharLimit)}\n\`\`\``)
-      .join('\n\n')
-      .slice(0, deepReadTotalCharLimit);
-    const userPrompt = renderPromptTemplate(getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_USER'), {
+    const deepReadUserTemplate = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_DEEP_READ_USER');
+    const deepReadPromptBase = renderPromptTemplate(deepReadUserTemplate, {
+      projectName,
+      description: description || '无',
+      repositoryAnalysis: JSON.stringify(analysis, null, 2),
+      selectedFileContents: '',
+    });
+    const deepReadAvailableBytes = Math.max(
+      0,
+      LLMClient.DEEP_READ_MAX_REQUEST_BYTES - getUtf8ByteLength(deepReadPromptBase) - 1024
+    );
+    const selectedBlocks: string[] = [];
+    let usedChars = 0;
+    let usedBytes = 0;
+
+    for (const file of files) {
+      if (usedChars >= deepReadTotalCharLimit || usedBytes >= deepReadAvailableBytes) {
+        break;
+      }
+
+      const remainingChars = deepReadTotalCharLimit - usedChars;
+      const fileContent = file.content.slice(0, Math.min(deepReadFileCharLimit, remainingChars));
+      const separator = selectedBlocks.length > 0 ? '\n\n' : '';
+      const blockPrefix = `## ${file.path}\n\`\`\`\n`;
+      const blockSuffix = `\n\`\`\``;
+      const fullBlock = `${blockPrefix}${fileContent}${blockSuffix}`;
+      const fullBlockBytes = getUtf8ByteLength(separator) + getUtf8ByteLength(fullBlock);
+
+      if (usedBytes + fullBlockBytes <= deepReadAvailableBytes) {
+        selectedBlocks.push(fullBlock);
+        usedChars += fullBlock.length;
+        usedBytes += fullBlockBytes;
+        continue;
+      }
+
+      const remainingBytes = deepReadAvailableBytes - usedBytes - getUtf8ByteLength(separator);
+      const contentBudgetBytes = remainingBytes - getUtf8ByteLength(blockPrefix) - getUtf8ByteLength(blockSuffix);
+
+      if (contentBudgetBytes <= 0) {
+        break;
+      }
+
+      const trimmedContent = trimTextToUtf8Bytes(fileContent, contentBudgetBytes);
+      if (!trimmedContent) {
+        break;
+      }
+
+      selectedBlocks.push(`${blockPrefix}${trimmedContent}${blockSuffix}`);
+      break;
+    }
+
+    const selectedFileContents = selectedBlocks.join('\n\n');
+    const userPrompt = renderPromptTemplate(deepReadUserTemplate, {
       projectName,
       description: description || '无',
       repositoryAnalysis: JSON.stringify(analysis, null, 2),
