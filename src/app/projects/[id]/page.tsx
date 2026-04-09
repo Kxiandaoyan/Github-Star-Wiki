@@ -44,6 +44,20 @@ interface ProjectDetailPageProps {
   }>;
 }
 
+function dedupeBucketsBySlug<T extends { slug: string; name: string }>(items: T[]) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const slug = item.slug.trim();
+    if (!slug || seen.has(slug)) {
+      return false;
+    }
+
+    seen.add(slug);
+    return item.name.trim().length > 0;
+  });
+}
+
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -226,7 +240,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const projectTopics = parseTopics(project.topics);
   const relatedProjects = getRelatedProjects(project.id, 6);
   const matchingSpecialCollections = getMatchingSpecialCollectionsForProject(project.id).slice(0, 3);
-  const matchingUseCases = getMatchingUseCasesForProject(project.id).slice(0, 3);
+  const matchingUseCases = dedupeBucketsBySlug(getMatchingUseCasesForProject(project.id)).slice(0, 3);
   const projectTypeLink = getProjectTypeLinkForProject(project.id);
   const projectTypeLabel = projectTypeLabelMap[project.project_type || 'unknown'] || projectTypeLabelMap.unknown;
   const title = project.seo_title || `${project.full_name} 是什么？用途、安装与使用指南`;

@@ -442,6 +442,19 @@ function normalizeUseCaseKey(value: string) {
   return normalizeText(value);
 }
 
+function dedupeSpecialCollectionBuckets(items: SpecialCollectionBucket[]) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    if (!item.slug || seen.has(item.slug)) {
+      return false;
+    }
+
+    seen.add(item.slug);
+    return true;
+  });
+}
+
 function toProjectListItem(project: SpecialCollectionProjectRow): ProjectListItem {
   return {
     id: project.id,
@@ -613,7 +626,8 @@ export function getUseCaseBuckets(limit = 12): SpecialCollectionBucket[] {
     });
   });
 
-  return [...buckets.entries()]
+  return dedupeSpecialCollectionBuckets(
+    [...buckets.entries()]
     .map(([, value]) => ({
       name: value.name,
       slug: slugifyTaxonomyValue(value.name),
@@ -622,8 +636,10 @@ export function getUseCaseBuckets(limit = 12): SpecialCollectionBucket[] {
       description: `自动聚合站内已分析完成、并被识别与“${value.name}”相关的 GitHub Star 项目。`,
       href: `/use-cases/${slugifyTaxonomyValue(value.name)}`,
     }))
+    .filter((item) => item.name.trim().length > 0 && item.slug.length > 0)
     .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
-    .slice(0, limit);
+    .slice(0, limit)
+  );
 }
 
 export function getProjectsByUseCaseSlug(slug: string) {
