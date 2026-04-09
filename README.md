@@ -5,75 +5,148 @@
 <p align="center">
   <img src="./png/Snipaste_2026-03-11_19-45-02.png" alt="Star Wiki 首页预览 1" width="32%" />
   <img src="./png/Snipaste_2026-03-11_19-45-31.png" alt="Star Wiki 首页预览 2" width="32%" />
-  <img src="./png/Snipaste_2026-03-11_19-45-42.png" alt="Star Wiki 项目页预览" width="32%" />
+  <img src="./png/Snipaste_2026-03-11_19-45-42.png" alt="Star Wiki 项目详情页预览" width="32%" />
 </p>
 
-Star Wiki 是一个把你的 GitHub Star 列表整理成“可搜索项目库”的网站。
+Star Wiki 是一个把 GitHub Star 列表整理成“可搜索、可理解、可回看”的个人项目知识库。
 
-很多人 Star 了很多仓库，但过一段时间以后，往往只记得“我好像收藏过一个这个方向的项目”，却很难再快速找回来。这个项目就是为了解决这个问题：
+它不是简单展示 GitHub 返回的数据，而是围绕“我为什么 Star 它”“它解决什么问题”“以后我怎么再找到它”来重组你的收藏项目。
 
-- 把你 Star 过的项目同步下来
-- 自动生成中文简介
-- 自动生成结构化 Wiki 卡片
-- 支持搜索、筛选、回看
+## 现在已经支持什么
 
-它更像是一个“面向自己收藏项目的检索与整理工具”，而不只是一个简单的 Star 列表页面。
+- 同步 GitHub Star 列表
+- 为项目生成一句话中文简介
+- 生成更完整的中文项目介绍
+- 生成详细 Wiki 章节
+- 对可分析项目生成思维导图
+- 自动识别项目类型、用途、问题定义
+- 首页中文搜索与筛选
+- 语义搜索排序
+- 项目详情页语义相关推荐
+- 自动专题页
+- `/graph` 项目关系网图谱
+- `/admin` 后台配置与重写
+- 多阶段队列处理与缓存
+- SEO 标题、描述、FAQ、结构化数据
 
-## 这个项目能做什么
+## 项目定位
 
-Star Wiki 会围绕你的 GitHub Star 列表做三件事：
+这个项目更偏“给自己整理 Star”的工具，而不是商业化的开源导航站。
 
-1. 帮你收集
+核心目标有三个：
 
-它会从 GitHub 拉取你 Star 过的仓库信息，包括仓库名、描述、语言、标签、Star 时间等。
+1. 帮你把收藏过的项目沉淀下来
+2. 帮你理解每个项目到底是干什么的
+3. 帮你在几个月之后还能重新找到它
 
-2. 帮你整理
+## 核心能力
 
-它会结合 README、仓库结构和关键信息，为每个项目生成：
+### 1. GitHub Star 同步
 
-- 一句话简介
-- 中文项目介绍
-- 多段 Wiki 内容
+系统会拉取你的 GitHub Star 仓库信息，包括：
 
-3. 帮你查找
+- 仓库名
+- 描述
+- 语言
+- topics
+- Star 时间
+- 更新时间
 
-你可以像查自己的资料库一样，按关键词、语言、中文介绍、标签去搜索项目，而不是再去翻 GitHub 的原始 Star 列表。
+### 2. AI 项目理解
 
-## 适合谁用
+系统不是一次性把整个仓库丢给模型，而是走多阶段处理链路：
 
-这个项目尤其适合下面几类用户：
+1. `scan_repo`
+   读取 README、目录结构、关键配置文件
+2. `analyze_repo`
+   分析项目类型、用途、问题定义、推荐深读文件
+3. `deep_read_repo`
+   对关键文件做更深入理解
+4. `generate_profile`
+   生成中文介绍、Wiki、SEO 字段、FAQ、思维导图
 
-- 经常收藏开源项目，但过阵子就忘了为什么收藏的人
-- 想把 GitHub Star 列表整理成“自己的项目知识库”的人
-- 希望用中文搜索和回看项目的人
-- 想做一个有展示感的个人技术收藏网站的人
+这样做的目的：
 
-## 主要功能
+- 更省 token
+- 更稳定
+- 不容易胡编
+- 更适合处理 500 到 2000 个项目
 
-- GitHub Star 同步
-- 中文搜索
-- 语言筛选
-- 一句话项目简介
-- 中文详细介绍
-- Wiki 卡片生成
-- Star 活动时间网格
-- 项目详情页
-- 定时同步
-- 队列并发处理
+### 3. 语义整理
 
-## 页面大概是什么样
+系统会把项目整理成语义画像，并基于这份画像提供：
 
-首页重点放在两件事上：
+- 语义搜索排序
+- 关系网图谱
+- 项目详情页相关推荐
+- 自动专题页聚合
+
+关系不是按编程语言硬连，而是更偏：
+
+- 用途
+- 功能
+- 场景
+- 能力标签
+- 关键词
+
+## 页面结构
+
+### 首页
+
+首页主要承担三件事：
 
 - 搜索
-- 项目卡片浏览
+- 浏览最新同步项目
+- 从专题、用途、类型、图谱等入口重新发现项目
 
-你可以先搜，再快速判断一个项目是不是你当初想找的那个。点进项目后，可以继续看：
+### 项目详情页
 
-- 原始仓库信息
-- 中文简介
-- Wiki 分段内容
-- 快速链接
+详情页会展示：
+
+- GitHub 原始信息
+- 一句话介绍
+- 中文项目介绍
+- Wiki 章节
+- 思维导图
+- FAQ
+- 自动专题入口
+- 语义相关推荐
+- 关系网跳转入口
+
+### 关系网图谱
+
+`/graph` 会把项目按用途和功能组织成语义星系图，而不是按语言堆在一起。
+
+它更适合做两件事：
+
+- 重新发现以前收藏过但忘掉的项目
+- 看清自己到底在哪些方向上收藏得最多
+
+### Admin 后台
+
+`/admin` 后台支持：
+
+- 使用环境变量中的账号密码登录
+- 查看和修改运行配置
+- 编辑提示词
+- 触发单项目重写
+- 触发全量重写
+- 查看队列阶段状态
+- 查看 SEO 缺口
+- 查看内容质量问题
+- 回填语义缓存
+
+## 自动专题页
+
+系统已经支持自动生成聚合页，例如：
+
+- `/collections`
+- `/topics`
+- `/languages`
+- `/types`
+- `/use-cases`
+
+这些页面不需要人工写文章，适合做站内内链与 SEO 入口。
 
 ## 技术栈
 
@@ -85,20 +158,8 @@ Star Wiki 会围绕你的 GitHub Star 列表做三件事：
 - SQLite
 - better-sqlite3
 - node-cron
+- Axios
 - GLM / Anthropic 兼容接口
-
-## 运行原理
-
-整体流程大致是这样：
-
-1. 读取你的 GitHub Star 列表
-2. 把项目基础信息写入本地数据库
-3. 进入后台任务队列
-4. 拉取仓库 README、目录结构和关键文件信息
-5. 调用大模型生成中文简介和 Wiki 内容
-6. 首页和项目页展示整理后的结果
-
-也就是说，Star Wiki 不是单纯地“展示 GitHub 返回的数据”，而是在此基础上做了二次整理和中文化。
 
 ## 快速开始
 
@@ -108,17 +169,23 @@ Star Wiki 会围绕你的 GitHub Star 列表做三件事：
 npm install
 ```
 
-### 2. 配置环境变量
+### 2. 初始化环境变量
 
-复制示例文件：
+复制环境变量示例文件：
 
 ```bash
 cp .env.example .env
 ```
 
-然后填写你自己的配置。
+Windows PowerShell 可用：
 
-常用配置包括：
+```powershell
+Copy-Item .env.example .env
+```
+
+### 3. 配置 `.env`
+
+常用配置如下：
 
 ```bash
 # GitHub
@@ -129,15 +196,32 @@ GITHUB_TOKEN=your_github_token
 GLM_API_KEYS=key1,key2
 GLM_BASE_URL=https://open.bigmodel.cn/api/anthropic
 GLM_MODEL=glm-4
+GLM_ANALYSIS_MODEL=
+
+# Queue
+TASK_CONCURRENCY=2
+MAX_RETRY_COUNT=3
+ANALYSIS_FILE_LIMIT=8
 
 # Sync
 SYNC_INTERVAL_MINUTES=60
 
-# Queue
-TASK_CONCURRENCY=2
+# Site
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# Admin
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change_me
+ADMIN_SESSION_SECRET=change_me_too
 ```
 
-### 3. 启动开发环境
+### 4. 初始化数据库
+
+```bash
+npm run init-db
+```
+
+### 5. 启动开发环境
 
 ```bash
 npm run dev
@@ -149,172 +233,117 @@ npm run dev
 http://localhost:3000
 ```
 
-### 4. 首次同步数据
+## 首次使用建议流程
 
-第一次启动后，需要主动触发一次同步，这样系统才会开始抓取你的 Star 项目并生成内容。
+1. 配好 GitHub 和 LLM 相关环境变量
+2. 启动项目
+3. 访问 `/admin` 登录后台
+4. 检查配置是否正确
+5. 调用 `/api/sync` 或在后台触发同步
+6. 等待后台队列逐步生成项目内容
+7. 在首页、详情页、图谱页中预览结果
 
-可以直接请求：
+## API 与后台行为
+
+### 同步
+
+手动触发同步：
 
 ```bash
 curl -X POST http://localhost:3000/api/sync
 ```
 
-或者你也可以用浏览器、Postman、Hoppscotch 等工具发送一个 `POST` 请求到：
+### 重写
 
-```text
-/api/sync
-```
+后台支持：
 
-## 首次使用时会发生什么
+- 单项目重写
+- 全量重写
+- 语义缓存回填
 
-第一次同步通常会经历下面几个阶段：
+其中：
 
-1. 拉取 GitHub Star 列表
-2. 为新项目创建处理任务
-3. 后台队列逐个分析仓库内容
-4. 生成中文简介和 Wiki
-5. 首页逐渐显示完整项目卡片
+- 全量重写会清空已有生成内容并重新入队
+- 语义缓存回填不会额外消耗 LLM token，主要用于补齐历史项目的语义画像
 
-如果你 Star 的项目很多，第一次处理会花一些时间，这是正常的。后续再同步时，只会继续处理新的项目或需要补充的内容。
+## 搜索现在是怎么做的
 
-## 搜索支持哪些内容
+当前搜索不只是匹配仓库原始字段，也会综合：
 
-当前搜索不仅会搜仓库原始信息，还会搜生成后的中文内容。
+- 项目名
+- SEO 标题
+- 一句话介绍
+- 中文介绍
+- topic
+- 项目类型
+- 语义标签
+- 用途
+- 能力关键词
 
-支持匹配的字段包括：
+搜索结果会优先按语义相关度排序，其次参考 Star 和同步时间。
 
-- 仓库全名
-- 仓库名
-- 原始描述
-- 中文简介
-- 一句话简介
-- topics 标签
+## SEO
 
-这意味着你可以直接用中文搜索，比如按“工作流”“代理”“浏览器插件”这类概念去找项目。
+项目已经补上了以下 SEO 能力：
 
-## 定时同步
-
-项目启动后会按设定的时间间隔自动同步 GitHub Star 列表。
-
-默认是：
-
-```bash
-SYNC_INTERVAL_MINUTES=60
-```
-
-也就是每 1 小时检查一次。
-
-## 环境变量说明
-
-### GitHub
-
-- `GITHUB_USERNAME`
-  你的 GitHub 用户名
-
-- `GITHUB_TOKEN`
-  推荐填写。没有 Token 也能运行，但 GitHub API 限额更低。
-
-### 大模型
-
-- `GLM_API_KEYS`
-  一个或多个 API Key，多个 Key 用英文逗号分隔
-
-- `GLM_BASE_URL`
-  模型接口地址，当前使用 Anthropic 兼容格式
-
-- `GLM_MODEL`
-  模型名
-
-### 同步与队列
-
-- `SYNC_INTERVAL_MINUTES`
-  定时同步间隔，单位是分钟
-
-- `TASK_CONCURRENCY`
-  后台并发处理数
-
-- `MAX_RETRY_COUNT`
-  失败后的最大重试次数
+- 项目详情页 SEO 标题与描述
+- FAQ 结构化数据
+- 首页与详情页结构化数据
+- sitemap
+- robots
+- 自动专题页可索引入口
+- 更强的站内内链
 
 ## 项目结构
 
 ```text
 src/
   app/
-    api/                 API 路由
-    projects/            项目详情页
-    page.tsx             首页
-  components/            页面组件
+    admin/                  后台页面
+    api/                    API 路由
+    collections/            自动专题页
+    graph/                  关系网图谱
+    languages/              语言聚合页
+    projects/               项目详情页
+    topics/                 topic 聚合页
+    types/                  项目类型聚合页
+    use-cases/              用途聚合页
+  components/
+    admin/                  后台组件
+    seo/                    SEO 页面组件
   lib/
-    app.ts               应用初始化
-    db.ts                数据库初始化
-    github.ts            GitHub 同步与仓库分析
-    llm.ts               大模型调用
-    queue-concurrent.ts  并发任务队列
+    admin-auth.ts           后台鉴权
+    db.ts                   SQLite 初始化
+    github.ts               GitHub 同步与仓库读取
+    llm.ts                  大模型调用
+    project-analysis.ts     扫描/分析/深读缓存
+    project-network.ts      图谱数据构建
+    project-search.ts       语义搜索排序
+    queue-concurrent.ts     并发队列处理
+    semantic-profile.ts     语义画像
+    settings.ts             运行配置与提示词
+    taxonomy.ts             专题/类型/用途聚合
 ```
 
 ## 部署说明
 
-你可以把它部署到支持 Node.js 的环境，比如：
-
-- Railway
-- VPS
-- 自己的服务器
-- 支持持久化存储的容器平台
-
-### 生产环境启动
+生产环境：
 
 ```bash
 npm run build
 npm run start
 ```
 
-### 推荐部署流程
+建议部署到支持持久化存储的环境，因为项目依赖本地 SQLite 数据文件。
 
-1. 配置环境变量
-2. 启动应用
-3. 首次触发 `/api/sync`
-4. 等待队列生成首页内容
+## 注意事项
 
-## 常见问题
-
-### 为什么刚启动时页面里项目内容不完整？
-
-因为项目同步后，还需要后台队列去分析仓库并生成中文内容。首次运行时，内容会逐步补全。
-
-### 为什么搜索结果会越来越准？
-
-因为搜索不仅依赖 GitHub 原始描述，也依赖后续生成的中文简介和 Wiki 内容。随着数据补齐，可搜索的信息会更丰富。
-
-### 这个项目更偏“展示”还是“工具”？
-
-两者都有，但本质上更偏“工具”。它的核心价值不是单纯好看，而是帮你重新找到和理解自己收藏过的项目。
+- `.env` 不要提交到仓库
+- `data/*.db` 不要提交到仓库
+- 建议为后台配置独立的 `ADMIN_SESSION_SECRET`
+- 如果项目量很大，优先调小 `TASK_CONCURRENCY` 和 `ANALYSIS_FILE_LIMIT`
+- 思维导图不是强制生成，文档型或结构不稳定项目可能会返回空
 
 ## License
 
 MIT
-
-## Admin 后台
-
-新版本增加了 `/admin` 后台：
-
-- 使用 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD` 登录
-- 后台可查看并编辑当前项目使用的运行配置
-- 可直接编辑 LLM 提示词，修改后保存立即生效
-- 支持一键重新排队所有项目的内容更新任务
-- 支持单项目重写，便于调试提示词效果
-
-建议新增以下环境变量：
-
-```bash
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change_me
-ADMIN_SESSION_SECRET=change_me_too
-```
-
-说明：
-
-- 除后台登录账号密码外，其余配置项会在后台中可见并可编辑
-- 后台保存后，配置会持久化到 SQLite 的 `app_settings` 表
-- GitHub、LLM、队列并发、同步周期和提示词都会优先读取后台保存值
-- 批量 Update 会重新生成一句话简介、中文介绍、详细章节和思维导图
