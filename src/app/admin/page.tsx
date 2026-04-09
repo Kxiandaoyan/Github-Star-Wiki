@@ -1,9 +1,9 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { ArrowLeft, Settings2 } from 'lucide-react';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { requireAdminPageAuth } from '@/lib/admin-auth';
-import { evaluateProjectContentQuality } from '@/lib/content-quality';
+import { AUTO_REPAIR_TRIGGER_ISSUES, evaluateProjectContentQuality } from '@/lib/content-quality';
 import db from '@/lib/db';
 import { getSeoDescriptionQualityIssue, getSeoTitleQualityIssue } from '@/lib/seo-utils';
 import { getSettingsByCategory } from '@/lib/settings';
@@ -220,6 +220,10 @@ export default async function AdminPage() {
     missingInstallCount: qualityRows.filter((row) => row.issues.includes('缺少安装信息')).length,
     missingUsageCount: qualityRows.filter((row) => row.issues.includes('缺少使用方法')).length,
     missingProblemCount: qualityRows.filter((row) => row.issues.includes('没有明确写出解决的问题')).length,
+    autoRepairCandidateCount: qualityRows.filter((row) =>
+      row.score < 70
+      || row.issues.filter((issue) => AUTO_REPAIR_TRIGGER_ISSUES.includes(issue as typeof AUTO_REPAIR_TRIGGER_ISSUES[number])).length >= 2
+    ).length,
   };
 
   const qualityIssues = qualityRows
@@ -264,7 +268,7 @@ export default async function AdminPage() {
               className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              返回前台
+              杩斿洖鍓嶅彴
             </Link>
             <div className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground">
               <Settings2 className="h-4 w-4 text-primary" />
@@ -278,11 +282,10 @@ export default async function AdminPage() {
       <main translate="no" className="notranslate mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
         <section className="mb-8 surface-panel rounded-[2rem] p-7 md:p-9">
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-4xl">
-            Star Wiki 后台
+            Star Wiki 鍚庡彴
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-8 text-muted-foreground md:text-base">
-            这里统一管理 GitHub、模型、调度与提示词，同时直接看到多阶段生成进度、内容质量与 SEO 缺口，方便用最低维护成本保持内容稳定。
-          </p>
+            杩欓噷缁熶竴绠＄悊 GitHub銆佹ā鍨嬨€佽皟搴︿笌鎻愮ず璇嶏紝鍚屾椂鐩存帴鐪嬪埌澶氶樁娈电敓鎴愯繘搴︺€佸唴瀹硅川閲忎笌 SEO 缂哄彛锛屾柟渚跨敤鏈€浣庣淮鎶ゆ垚鏈繚鎸佸唴瀹圭ǔ瀹氥€?          </p>
         </section>
 
         <AdminDashboard
@@ -301,3 +304,4 @@ export default async function AdminPage() {
     </div>
   );
 }
+

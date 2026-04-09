@@ -42,6 +42,7 @@ interface QualityStats {
   missingInstallCount: number;
   missingUsageCount: number;
   missingProblemCount: number;
+  autoRepairCandidateCount: number;
 }
 
 interface SeoIssueProject {
@@ -205,6 +206,17 @@ export function AdminActions({
 
           <Button
             type="button"
+            onClick={() => runAction('/api/admin/projects/repair-low-quality', '巡检并补全低质量项目')}
+            disabled={isPending}
+            variant="outline"
+            className="w-full rounded-2xl"
+          >
+            <Sparkles className="h-4 w-4" />
+            巡检并补全低质量项目
+          </Button>
+
+          <Button
+            type="button"
             onClick={() => runAction('/api/admin/model/test', '测试模型连接')}
             disabled={isPending}
             variant="outline"
@@ -331,6 +343,7 @@ export function AdminActions({
             <Metric label="缺少安装信息" value={qualityStats.missingInstallCount} />
             <Metric label="缺少使用方法" value={qualityStats.missingUsageCount} />
             <Metric label="缺少问题定义" value={qualityStats.missingProblemCount} />
+            <Metric label="待自动补全" value={qualityStats.autoRepairCandidateCount} />
           </div>
 
           {qualityIssues.length > 0 ? (

@@ -1,7 +1,15 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import type { Metadata } from 'next';
-import { ArrowRight, ExternalLink, Heart, Orbit, SearchCode, Star, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  ExternalLink,
+  Heart,
+  SearchCode,
+  Sparkles,
+  Star,
+  Users,
+} from 'lucide-react';
 import { BackgroundParticles } from '@/components/BackgroundParticles';
 import { HeroCodeBackdrop } from '@/components/HeroCodeBackdrop';
 import { LanguageFilter } from '@/components/LanguageFilter';
@@ -12,13 +20,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { fetchGitHubProfile, getLanguages, getProjects } from '@/lib/github';
-import {
-  getLanguageBuckets,
-  getProjectTypeBuckets,
-  getSpecialCollectionBuckets,
-  getTopicBuckets,
-  getUseCaseBuckets,
-} from '@/lib/taxonomy';
+import { getLanguageBuckets, getTopicBuckets } from '@/lib/taxonomy';
 import db from '@/lib/db';
 import { searchProjects } from '@/lib/project-search';
 
@@ -26,7 +28,27 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const HOME_PAGE_SIZE = 21;
 const ACTIVITY_WEEKS = 24;
 
+const HOME_NAV_LINKS = [
+  { href: '/graph', label: '项目关系网图谱' },
+  { href: '/collections', label: '自动专题页' },
+  { href: '/types', label: '按项目类型浏览' },
+  { href: '/use-cases', label: '按使用场景浏览' },
+];
+
 export const dynamic = 'force-dynamic';
+
+interface HomePageProps {
+  searchParams: Promise<{
+    q?: string;
+    lang?: string;
+    page?: string;
+  }>;
+}
+
+interface ActivityPoint {
+  date: string;
+  count: number;
+}
 
 export async function generateMetadata({
   searchParams,
@@ -55,41 +77,14 @@ export async function generateMetadata({
     },
     robots: isFilteredList
       ? {
-        index: false,
-        follow: true,
-      }
+          index: false,
+          follow: true,
+        }
       : {
-        index: true,
-        follow: true,
-      },
+          index: true,
+          follow: true,
+        },
   };
-}
-
-interface HomePageProps {
-  searchParams: Promise<{
-    q?: string;
-    lang?: string;
-    page?: string;
-  }>;
-}
-
-interface ActivityPoint {
-  date: string;
-  count: number;
-}
-
-function dedupeBucketsBySlug<T extends { slug: string }>(items: T[]) {
-  const seen = new Set<string>();
-
-  return items.filter((item) => {
-    const slug = item.slug.trim().toLowerCase();
-    if (!slug || seen.has(slug)) {
-      return false;
-    }
-
-    seen.add(slug);
-    return true;
-  });
 }
 
 function toDateKey(date: Date) {
@@ -109,13 +104,15 @@ function getActivityStartDate(weeks: number) {
 function getStarActivity(weeks = ACTIVITY_WEEKS) {
   const start = getActivityStartDate(weeks);
   const startKey = toDateKey(start);
-  const rows = db.prepare(`
-    SELECT DATE(starred_at) as date, COUNT(*) as count
-    FROM projects
-    WHERE starred_at IS NOT NULL AND DATE(starred_at) >= DATE(?)
-    GROUP BY DATE(starred_at)
-    ORDER BY DATE(starred_at) ASC
-  `).all(startKey) as ActivityPoint[];
+  const rows = db
+    .prepare(`
+      SELECT DATE(starred_at) as date, COUNT(*) as count
+      FROM projects
+      WHERE starred_at IS NOT NULL AND DATE(starred_at) >= DATE(?)
+      GROUP BY DATE(starred_at)
+      ORDER BY DATE(starred_at) ASC
+    `)
+    .all(startKey) as ActivityPoint[];
 
   const countByDate = new Map(rows.map((row) => [row.date, row.count]));
   const cells: ActivityPoint[] = [];
@@ -134,21 +131,21 @@ function getStarActivity(weeks = ACTIVITY_WEEKS) {
 }
 
 function buildPageHref(pageNumber: number, language?: string, query?: string) {
-  const searchParams = new URLSearchParams();
+  const params = new URLSearchParams();
 
   if (pageNumber > 1) {
-    searchParams.set('page', String(pageNumber));
+    params.set('page', String(pageNumber));
   }
 
   if (language) {
-    searchParams.set('lang', language);
+    params.set('lang', language);
   }
 
   if (query) {
-    searchParams.set('q', query);
+    params.set('q', query);
   }
 
-  const serialized = searchParams.toString();
+  const serialized = params.toString();
   return serialized ? `/?${serialized}` : '/';
 }
 
@@ -206,15 +203,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const [projectCount, wikiCount, recordedStarCount, activity] = [
     (db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-    (db.prepare("SELECT COUNT(*) as count FROM projects WHERE wiki_status = 'completed'").get() as { count: number }).count,
-    (db.prepare('SELECT COUNT(*) as count FROM projects WHERE starred_at IS NOT NULL').get() as { count: number }).count,
+    (db.prepare("SELECT COUNT(*) as count FROM projects WHERE wiki_status = 'completed'").get() as {
+      count: number;
+    }).count,
+    (db.prepare('SELECT COUNT(*) as count FROM projects WHERE starred_at IS NOT NULL').get() as {
+      count: number;
+    }).count,
     getStarActivity(),
   ];
-  const featuredLanguageBuckets = getLanguageBuckets(8);
-  const featuredTopicBuckets = getTopicBuckets(12);
-  const featuredSpecialCollections = getSpecialCollectionBuckets(4);
-  const featuredProjectTypes = getProjectTypeBuckets(4);
-  const featuredUseCases = dedupeBucketsBySlug(getUseCaseBuckets(8)).slice(0, 4);
+
+  const featuredLanguageBuckets = getLanguageBuckets(24);
+  const featuredTopicBuckets = getTopicBuckets(36);
 
   const websiteJsonLd = {
     '@context': 'https://schema.org',
@@ -229,6 +228,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       'query-input': 'required name=search_term_string',
     },
   };
+
   const homeItemListJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -262,24 +262,40 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div className="absolute bottom-[10%] left-[48%] h-44 w-44 rounded-full bg-amber-200/14 blur-3xl dark:bg-amber-300/8" />
       </div>
 
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-full">
-            <Star className="h-4 w-4 fill-amber-400 text-amber-500 dark:fill-amber-300 dark:text-amber-300" />
+      <header className="mx-auto max-w-7xl px-4 py-5 md:px-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-full">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-500 dark:fill-amber-300 dark:text-amber-300" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Star Wiki</p>
+                <p className="text-sm font-medium text-foreground">帮你搜索与回看 Star 过的项目</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/admin"
+                className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                后台
+              </Link>
+              <ThemeToggle />
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Star Wiki</p>
-            <p className="text-sm font-medium text-foreground">帮你搜索与回看 Star 过的项目</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin"
-            className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            后台
-          </Link>
-          <ThemeToggle />
+
+          <nav className="flex flex-wrap gap-2">
+            {HOME_NAV_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </header>
 
@@ -373,186 +389,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
         <StarActivityGrid cells={activity} recordedCount={recordedStarCount} weeks={ACTIVITY_WEEKS} />
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <Card className="surface-panel rounded-[2rem] shadow-none lg:col-span-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">关系探索</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    项目关系网图谱
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/graph">进入图谱</Link>
-                </Button>
-              </div>
-              <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1.2fr)_0.8fr]">
-                <div className="surface-chip rounded-[1.6rem] p-5">
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Orbit className="h-4 w-4 text-primary" />
-                    星图视角
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                    不再只按列表翻项目，而是按共同主题、语言和项目类型把 Star 项目连成一张关系网，更适合重新发现你以前收藏过的隐性关联项目。
-                  </p>
-                </div>
-                <div className="grid gap-3">
-                  <Link href="/graph" className="surface-chip rounded-[1.4rem] px-4 py-4 text-sm text-foreground hover:text-primary">
-                    查看全局项目星图
-                  </Link>
-                  <Link href="/collections" className="surface-chip rounded-[1.4rem] px-4 py-4 text-sm text-foreground hover:text-primary">
-                    先按专题聚合，再进入图谱
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel rounded-[2rem] shadow-none lg:col-span-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">自动专题</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    自动专题页
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/collections">查看全部</Link>
-                </Button>
-              </div>
-              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {featuredSpecialCollections.map((collection) => (
-                  <Link
-                    key={collection.slug}
-                    href={collection.href}
-                    className="surface-chip rounded-[1.5rem] px-4 py-4 text-sm text-foreground hover:text-primary"
-                  >
-                    <div className="font-medium">{collection.title}</div>
-                    <div className="mt-2 line-clamp-3 leading-6 text-muted-foreground">{collection.description}</div>
-                    <div className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      {collection.count} 个项目
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    按项目类型浏览
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/types">查看全部</Link>
-                </Button>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {featuredProjectTypes.map((bucket) => (
-                  <Link
-                    key={bucket.slug}
-                    href={bucket.href}
-                    className="surface-chip rounded-full px-4 py-2 text-sm text-foreground hover:text-primary"
-                  >
-                    {bucket.name}
-                    <span className="ml-2 text-muted-foreground">{bucket.count}</span>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    按使用场景浏览
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/use-cases">查看全部</Link>
-                </Button>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {featuredUseCases.map((bucket) => (
-                  <Link
-                    key={bucket.slug}
-                    href={bucket.href}
-                    className="surface-chip rounded-full px-4 py-2 text-sm text-foreground hover:text-primary"
-                  >
-                    {bucket.name}
-                    <span className="ml-2 text-muted-foreground">{bucket.count}</span>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    按编程语言浏览
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/languages">查看全部</Link>
-                </Button>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {featuredLanguageBuckets.map((bucket) => (
-                  <Link
-                    key={bucket.slug}
-                    href={`/languages/${bucket.slug}`}
-                    className="surface-chip rounded-full px-4 py-2 text-sm text-foreground hover:text-primary"
-                  >
-                    {bucket.name}
-                    <span className="ml-2 text-muted-foreground">{bucket.count}</span>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">聚合入口</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                    按技术标签浏览
-                  </h2>
-                </div>
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href="/topics">查看全部</Link>
-                </Button>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {featuredTopicBuckets.map((bucket) => (
-                  <Link
-                    key={bucket.slug}
-                    href={`/topics/${bucket.slug}`}
-                    className="surface-chip rounded-full px-4 py-2 text-sm text-foreground hover:text-primary"
-                  >
-                    {bucket.name}
-                    <span className="ml-2 text-muted-foreground">{bucket.count}</span>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
         <section className="space-y-4">
           <div className="space-y-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -602,42 +438,112 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 第 {page} / {result.totalPages} 页
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2">
-              {page > 1 ? (
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href={buildPageHref(page - 1, language, query)}>上一页</Link>
-                </Button>
-              ) : null}
-
-              {getPaginationItems(page, result.totalPages).map((item, index) => (
-                item === 'ellipsis' ? (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="px-2 text-sm text-muted-foreground"
-                  >
-                    ...
-                  </span>
-                ) : (
-                  <Button
-                    key={item}
-                    asChild
-                    variant={item === page ? 'default' : 'ghost'}
-                    className="rounded-full"
-                  >
-                    <Link href={buildPageHref(item, language, query)}>
-                      {item}
-                    </Link>
+                {page > 1 ? (
+                  <Button asChild variant="ghost" className="rounded-full">
+                    <Link href={buildPageHref(page - 1, language, query)}>上一页</Link>
                   </Button>
-                )
-              ))}
+                ) : null}
 
-              {page < result.totalPages ? (
-                <Button asChild variant="ghost" className="rounded-full">
-                  <Link href={buildPageHref(page + 1, language, query)}>下一页</Link>
-                </Button>
-              ) : null}
+                {getPaginationItems(page, result.totalPages).map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="px-2 text-sm text-muted-foreground">
+                      ...
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      asChild
+                      variant={item === page ? 'default' : 'ghost'}
+                      className="rounded-full"
+                    >
+                      <Link href={buildPageHref(item, language, query)}>{item}</Link>
+                    </Button>
+                  )
+                )}
+
+                {page < result.totalPages ? (
+                  <Button asChild variant="ghost" className="rounded-full">
+                    <Link href={buildPageHref(page + 1, language, query)}>下一页</Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           ) : null}
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Card className="surface-panel rounded-[2rem] shadow-none">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">底部导航</p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                    按编程语言浏览
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    直接按语言回看你收藏过的项目，名称完整展示，不再截断。
+                  </p>
+                </div>
+                <Button asChild variant="ghost" className="rounded-full">
+                  <Link href="/languages">查看全部</Link>
+                </Button>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {featuredLanguageBuckets.map((bucket) => (
+                  <Link
+                    key={bucket.slug}
+                    href={`/languages/${bucket.slug}`}
+                    className="surface-chip rounded-[1.5rem] px-4 py-4 text-left text-sm text-foreground hover:text-primary"
+                  >
+                    <div className="break-words font-medium leading-6 whitespace-normal">{bucket.name}</div>
+                    <div className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      {bucket.count} 个项目
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="surface-panel rounded-[2rem] shadow-none">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">底部导航</p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                    按技术标签浏览
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    完整显示技术标签，方便直接进入对应聚合页。
+                  </p>
+                </div>
+                <Button asChild variant="ghost" className="rounded-full">
+                  <Link href="/topics">查看全部</Link>
+                </Button>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {featuredTopicBuckets.map((bucket) => (
+                  <Link
+                    key={bucket.slug}
+                    href={`/topics/${bucket.slug}`}
+                    className="surface-chip rounded-[1.5rem] px-4 py-4 text-left text-sm text-foreground hover:text-primary"
+                  >
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-1 h-4 w-4 shrink-0 text-primary/80" />
+                      <div className="min-w-0">
+                        <div className="break-words font-medium leading-6 whitespace-normal">
+                          {bucket.name}
+                        </div>
+                        <div className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          {bucket.count} 个项目
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </section>
       </main>
 

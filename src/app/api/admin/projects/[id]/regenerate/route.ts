@@ -34,7 +34,8 @@ export async function POST(
             seo_title = NULL,
             seo_description = NULL,
             faq_json = NULL,
-            project_type = NULL
+            project_type = NULL,
+            auto_repair_count = 0
         WHERE id = ?
       `).run(projectId);
 

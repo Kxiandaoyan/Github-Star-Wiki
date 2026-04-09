@@ -10,6 +10,7 @@ import {
   saveProjectScan,
   saveProjectSemantic,
 } from './project-analysis';
+import { enqueueProjectAutoRepair } from './project-auto-repair';
 import { deriveProjectSemanticProfile } from './semantic-profile';
 import { createPipelinePromptSnapshot, getNumberSetting, getSettingValue } from './settings';
 import {
@@ -504,12 +505,12 @@ export class ConcurrentQueueProcessor {
       artifacts.scan.promptSnapshot || null
     );
 
-    this.saveGeneratedProject(project.id, result);
+    this.saveGeneratedProject(project.id, result, task.priority);
     this.updateApiKeyUsage(apiKey.id);
     return 'completed';
   }
 
-  private saveGeneratedProject(projectId: number, result: GeneratedProjectResult) {
+  private saveGeneratedProject(projectId: number, result: GeneratedProjectResult, priority: number) {
     const saveResult = db.transaction(() => {
       db.prepare('DELETE FROM wiki_documents WHERE project_id = ?').run(projectId);
 
@@ -551,6 +552,26 @@ export class ConcurrentQueueProcessor {
 
     saveResult();
     this.refreshSemanticProfile(projectId);
+    this.maybeEnqueueAutoRepair(projectId, priority);
+  }
+
+  private maybeEnqueueAutoRepair(projectId: number, priority: number) {
+    const result = enqueueProjectAutoRepair(projectId, getFollowUpTaskPriority(priority));
+
+    if (result.enqueued) {
+      console.log(
+        `[Auto Repair] queued project=${projectId} task=${result.taskType} score=${result.score ?? 'n/a'} issues=${result.issues.join(' | ')}`
+      );
+      return;
+    }
+
+    if (result.reason === 'quality_ok' || result.reason === 'not_generated_yet') {
+      return;
+    }
+
+    console.log(
+      `[Auto Repair] skipped project=${projectId} reason=${result.reason} score=${result.score ?? 'n/a'} issues=${result.issues.join(' | ')}`
+    );
   }
 
   private refreshSemanticProfile(projectId: number) {

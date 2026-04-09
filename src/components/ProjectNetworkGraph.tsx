@@ -36,11 +36,6 @@ interface LayoutData {
   clusters: PositionedCluster[];
 }
 
-interface RelatedNodeEntry {
-  node: GraphNode;
-  link: GraphLink;
-}
-
 type DisplayScale = 'focus' | 'balanced' | 'all';
 
 const displayScaleOptions: Array<{ id: DisplayScale; label: string; limit: number }> = [
@@ -355,10 +350,6 @@ function buildStarfield(width: number, height: number) {
   });
 }
 
-function isRelatedNodeEntry(entry: GraphNode | RelatedNodeEntry): entry is RelatedNodeEntry {
-  return 'node' in entry && 'link' in entry;
-}
-
 export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -479,20 +470,6 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
       .filter((item): item is { node: GraphNode; link: GraphLink } => Boolean(item.node))
       .sort((left, right) => right.link.weight - left.link.weight || right.node.stars - left.node.stars);
   }, [graph.nodes, selectedLinks, selectedNode]);
-
-  const recommendedNodes = useMemo(() => {
-    if (selectedNode) {
-      return relatedNodes.map((item) => item.node);
-    }
-
-    const preferredCluster = focusClusterId
-      ? visibleNodes.filter((node) => node.cluster === focusClusterId)
-      : visibleNodes;
-
-    return [...preferredCluster]
-      .sort((left, right) => right.stars - left.stars)
-      .slice(0, 6);
-  }, [focusClusterId, relatedNodes, selectedNode, visibleNodes]);
 
   const activeCluster = focusClusterId ? clusterLookup.get(focusClusterId) || null : null;
   const starfield = useMemo(() => buildStarfield(size.width, size.height), [size.height, size.width]);
@@ -932,45 +909,44 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
             )}
           </CardContent>
         </Card>
+        {selectedNode ? (
+          <Card className="surface-panel rounded-[2rem] shadow-none">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" />
+                ????
+              </div>
+              <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                {relatedNodes.length > 0 ? relatedNodes.map((entry) => {
+                  const node = entry.node;
+                  const link = entry.link;
 
-        <Card className="surface-panel rounded-[2rem] shadow-none">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Sparkles className="h-4 w-4 text-primary" />
-              {selectedNode ? '直接关联' : '推荐浏览'}
-            </div>
-            <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-              {(selectedNode ? relatedNodes : recommendedNodes).length > 0 ? (selectedNode ? relatedNodes : recommendedNodes).map((entry) => {
-                const node = isRelatedNodeEntry(entry) ? entry.node : entry;
-                const link = isRelatedNodeEntry(entry) ? entry.link : null;
-
-                return (
-                  <button
-                    key={node.id}
-                    type="button"
-                    onClick={() => setSelectedId(node.id)}
-                    className={cn(
-                      'surface-chip w-full rounded-[1.4rem] px-4 py-4 text-left transition-colors',
-                      'hover:border-primary/30'
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-6 text-foreground">{node.fullName}</p>
-                        <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                          {link ? link.reason.join(' / ') : node.oneLineIntro || node.description || '查看这个项目的详情。'}
-                        </p>
+                  return (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => setSelectedId(node.id)}
+                      className={cn(
+                        'surface-chip w-full rounded-[1.4rem] px-4 py-4 text-left transition-colors',
+                        'hover:border-primary/30'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-6 text-foreground">{node.fullName}</p>
+                          <p className="mt-2 text-sm leading-7 text-muted-foreground">{link.reason.join(' / ')}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formatStars(node.stars)}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{formatStars(node.stars)}</span>
-                    </div>
-                  </button>
-                );
-              }) : (
-                <p className="text-sm leading-7 text-muted-foreground">当前条件下没有可展示的推荐项目。</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    </button>
+                  );
+                }) : (
+                  <p className="text-sm leading-7 text-muted-foreground">???????????????</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );

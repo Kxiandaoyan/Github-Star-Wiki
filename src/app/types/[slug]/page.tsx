@@ -17,7 +17,7 @@ export async function generateMetadata({
 
   if (!result) {
     return {
-      title: '项目类型页不存在',
+      title: '项目类型页面不存在',
       robots: {
         index: false,
         follow: false,
@@ -57,17 +57,6 @@ export default async function ProjectTypeCollectionPage({
 
   const title = result.bucket.title;
   const description = result.bucket.description;
-  const faq = [
-    {
-      question: `${result.bucket.name} 类型页会收录什么项目？`,
-      answer: `会收录站内已识别为“${result.bucket.name}”的项目，适合从项目形态而不是技术栈重新整理收藏。`,
-    },
-    {
-      question: '为什么按项目类型聚合有价值？',
-      answer: '因为很多时候用户真正关心的不是仓库用了什么语言，而是它是应用、库、CLI、模板还是文档资源。',
-    },
-  ];
-
   const jsonLd = [
     {
       '@context': 'https://schema.org',
@@ -86,18 +75,6 @@ export default async function ProjectTypeCollectionPage({
         name: project.full_name,
       })),
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faq.map((item) => ({
-        '@type': 'Question',
-        name: item.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: item.answer,
-        },
-      })),
-    },
   ];
 
   return (
@@ -108,11 +85,10 @@ export default async function ProjectTypeCollectionPage({
       projects={result.projects}
       canonicalPath={result.bucket.href}
       jsonLd={jsonLd}
-      faq={faq}
       relatedLinks={[
-        { href: '/types', label: '全部项目类型入口' },
-        { href: '/use-cases', label: '全部使用场景入口' },
-        { href: '/collections', label: '全部专题入口' },
+        { href: '/types', label: '全部项目类型' },
+        { href: '/use-cases', label: '全部使用场景' },
+        { href: '/collections', label: '全部自动专题' },
       ]}
     />
   );

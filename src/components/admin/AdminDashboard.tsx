@@ -42,6 +42,7 @@ interface QualityStats {
   missingInstallCount: number;
   missingUsageCount: number;
   missingProblemCount: number;
+  autoRepairCandidateCount: number;
 }
 
 interface SeoIssueProject {

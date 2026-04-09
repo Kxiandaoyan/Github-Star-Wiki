@@ -13,7 +13,6 @@ import {
   HelpCircle,
   Lightbulb,
   Link2,
-  Orbit,
   RefreshCw,
   Sparkles,
   Star,
@@ -561,8 +560,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 <ActionLink href={project.html_url} icon={Github} label="GitHub 仓库" compact />
                 {project.homepage ? (
                   <ActionLink href={project.homepage} icon={ExternalLink} label="项目主页" compact />
-                ) : null}
-                <ActionLink href={`/graph?project=${project.id}`} icon={Orbit} label="在关系网中查看" compact internal />
+                ) : null}
               </div>
             </section>
 

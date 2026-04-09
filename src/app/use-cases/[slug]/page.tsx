@@ -17,7 +17,7 @@ export async function generateMetadata({
 
   if (!result) {
     return {
-      title: '使用场景页不存在',
+      title: '使用场景页面不存在',
       robots: {
         index: false,
         follow: false,
@@ -26,7 +26,7 @@ export async function generateMetadata({
   }
 
   const title = result.bucket.title;
-  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”场景相关的 GitHub Star 项目，帮助用户从真实用途而不是单个技术关键词重新发现项目。`;
+  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”场景相关的 GitHub Star 项目，帮助你从真实用途而不是单一技术关键词重新发现项目。`;
 
   return {
     title,
@@ -57,16 +57,6 @@ export default async function UseCaseCollectionPage({
 
   const title = result.bucket.title;
   const description = result.bucket.description;
-  const faq = [
-    {
-      question: `${result.bucket.name} 场景页会收录什么项目？`,
-      answer: `这里会自动聚合站内已分析完成、并被识别与“${result.bucket.name}”相关的 GitHub Star 项目。`,
-    },
-    {
-      question: '这个页面是怎么生成的？',
-      answer: '页面不是人工维护，而是来自项目分析阶段提取出的 use cases 聚合结果。',
-    },
-  ];
   const jsonLd = [
     {
       '@context': 'https://schema.org',
@@ -85,18 +75,6 @@ export default async function UseCaseCollectionPage({
         name: project.full_name,
       })),
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faq.map((item) => ({
-        '@type': 'Question',
-        name: item.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: item.answer,
-        },
-      })),
-    },
   ];
 
   return (
@@ -107,11 +85,10 @@ export default async function UseCaseCollectionPage({
       projects={result.projects}
       canonicalPath={result.bucket.href}
       jsonLd={jsonLd}
-      faq={faq}
       relatedLinks={[
-        { href: '/use-cases', label: '全部使用场景入口' },
-        { href: '/types', label: '全部项目类型入口' },
-        { href: '/collections', label: '全部专题入口' },
+        { href: '/use-cases', label: '全部使用场景' },
+        { href: '/types', label: '全部项目类型' },
+        { href: '/collections', label: '全部自动专题' },
       ]}
     />
   );

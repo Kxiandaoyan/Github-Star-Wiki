@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Script from 'next/script';
-import { ArrowLeft, BookOpen, Hash, Layers3, Star } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ProjectCard } from '@/components/ProjectCard';
 import type { ProjectListItem, TaxonomyBucket } from '@/lib/taxonomy';
@@ -13,7 +13,6 @@ interface CollectionPageProps {
   canonicalPath: string;
   jsonLd?: Record<string, unknown>[];
   relatedLinks?: Array<{ href: string; label: string }>;
-  faq?: Array<{ question: string; answer: string }>;
 }
 
 export function CollectionPage({
@@ -24,7 +23,6 @@ export function CollectionPage({
   canonicalPath,
   jsonLd = [],
   relatedLinks = [],
-  faq = [],
 }: CollectionPageProps) {
   return (
     <div className="min-h-screen">
@@ -82,73 +80,11 @@ export function CollectionPage({
           ) : null}
         </section>
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1.8fr_0.9fr]">
-          <div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard key={project.id} {...project} />
-              ))}
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <div className="surface-panel rounded-[1.8rem] p-6">
-              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
-                <Layers3 className="h-4 w-4 text-primary" />
-                页面摘要
-              </div>
-              <div className="space-y-3 text-sm leading-7 text-muted-foreground">
-                <p>当前聚合页围绕“{bucket.name}”组织站内相关项目，适合从稳定主题快速浏览、筛选并继续跳转到详情页。</p>
-                <p>页面优先展示已经完成中文简介或详情内容的项目，便于快速判断用途、场景和上手方式。</p>
-              </div>
-            </div>
-
-            {faq.length > 0 ? (
-              <div className="surface-panel rounded-[1.8rem] p-6">
-                <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  常见问题
-                </div>
-                <div className="space-y-4">
-                  {faq.map((item) => (
-                    <div key={item.question} className="surface-chip rounded-2xl p-4">
-                      <p className="font-medium text-foreground">{item.question}</p>
-                      <p className="mt-2 text-sm leading-7 text-muted-foreground">{item.answer}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="surface-panel rounded-[1.8rem] p-6">
-              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
-                <Hash className="h-4 w-4 text-primary" />
-                数据来源
-              </div>
-              <div className="space-y-3 text-sm leading-7 text-muted-foreground">
-                <p>项目列表来自用户自己的 GitHub Star 仓库集合。</p>
-                <p>中文简介、Wiki 和专题能力来自 README、目录结构、关键文件与语义分析结果。</p>
-                <p>排序默认更偏向高 Star 且内容较完整的项目，方便优先浏览高价值条目。</p>
-              </div>
-            </div>
-          </aside>
-        </section>
-
-        <section className="mt-10 surface-panel rounded-[1.8rem] p-6 md:p-7">
-          <div className="mb-5 flex items-center gap-2">
-            <Star className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">为什么这个聚合页有价值</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="surface-chip rounded-[1.4rem] p-5 text-sm leading-7 text-muted-foreground">
-              自动把同主题项目聚合起来，降低手工整理成本。
-            </div>
-            <div className="surface-chip rounded-[1.4rem] p-5 text-sm leading-7 text-muted-foreground">
-              每个项目都可以继续进入详情页，查看用途、安装和使用信息。
-            </div>
-            <div className="surface-chip rounded-[1.4rem] p-5 text-sm leading-7 text-muted-foreground">
-              对搜索引擎来说，这类规则聚合页比普通搜索结果页更稳定，也更容易被收录。
-            </div>
+        <section className="mt-8">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {projects.map((project) => (
+              <ProjectCard key={project.id} {...project} />
+            ))}
           </div>
         </section>
       </main>

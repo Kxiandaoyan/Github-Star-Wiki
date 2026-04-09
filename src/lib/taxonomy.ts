@@ -1,4 +1,4 @@
-import db from './db';
+﻿import db from './db';
 import type { RepositoryAnalysisResult, RepositoryDeepReadResult } from './project-analysis';
 import {
   deriveProjectSemanticProfile,
@@ -89,6 +89,44 @@ function parseJson<T>(value: string | null | undefined) {
 function intersectNormalized(left: string[], right: string[]) {
   const rightSet = new Set(right.map((item) => normalizeText(item)));
   return left.filter((item) => rightSet.has(normalizeText(item)));
+}
+
+function dedupeStrings(values: string[], limit: number) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    const normalized = normalizeText(trimmed);
+
+    if (!trimmed || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    result.push(trimmed);
+  });
+
+  return result.slice(0, limit);
+}
+
+function extractFunctionalPhrases(value: string | null | undefined, limit: number) {
+  return dedupeStrings(
+    (value || '')
+      .split(/[，。；;、,.!?\n|/]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 2 && part.length <= 32),
+    limit
+  );
+}
+
+function buildFunctionalIntentTerms(profile: ProjectSemanticProfile) {
+  return dedupeStrings([
+    ...profile.useCases,
+    ...profile.capabilities,
+    ...extractFunctionalPhrases(profile.problemSolved, 3),
+    ...extractFunctionalPhrases(profile.summary, 2),
+  ], 10);
 }
 
 function includesAny(text: string, keywords: string[]) {
@@ -781,6 +819,8 @@ export function getRelatedProjects(projectId: number, limit = 6) {
       deepRead: parseJson<RepositoryDeepReadResult>(current.deep_read_data),
     });
   const currentTopics = parseTopics(current.topics);
+  const currentFunctionalIntentTerms = buildFunctionalIntentTerms(currentProfile);
+  const currentProblemSignals = extractFunctionalPhrases(currentProfile.problemSolved, 3);
 
   const projects = db.prepare(`
     SELECT p.id, p.full_name, p.description, p.one_line_intro, p.stars, p.language, p.one_line_status, p.topics, p.project_type,
@@ -804,14 +844,46 @@ export function getRelatedProjects(projectId: number, limit = 6) {
           analysis: parseJson<RepositoryAnalysisResult>(project.analysis_data),
           deepRead: parseJson<RepositoryDeepReadResult>(project.deep_read_data),
         });
+      const projectFunctionalIntentTerms = buildFunctionalIntentTerms(profile);
+      const projectProblemSignals = extractFunctionalPhrases(profile.problemSolved, 3);
 
       const reasons = new Set<string>();
       let score = 0;
+      let functionalScore = 0;
 
       if (currentProfile.primaryCluster === profile.primaryCluster) {
         const cluster = clusterLookup.get(profile.primaryCluster);
         reasons.add(`同属 ${cluster?.label || profile.primaryCluster}`);
-        score += 8;
+        score += 5;
+        functionalScore += 3;
+      }
+
+      const sharedUseCases = intersectNormalized(currentProfile.useCases, profile.useCases).slice(0, 3);
+      if (sharedUseCases.length > 0) {
+        reasons.add(`用途接近：${sharedUseCases.join(' / ')}`);
+        score += sharedUseCases.length * 7;
+        functionalScore += sharedUseCases.length * 7;
+      }
+
+      const sharedCapabilities = intersectNormalized(currentProfile.capabilities, profile.capabilities).slice(0, 3);
+      if (sharedCapabilities.length > 0) {
+        reasons.add(`能力相近：${sharedCapabilities.join(' / ')}`);
+        score += sharedCapabilities.length * 5;
+        functionalScore += sharedCapabilities.length * 5;
+      }
+
+      const sharedProblemSignals = intersectNormalized(currentProblemSignals, projectProblemSignals).slice(0, 2);
+      if (sharedProblemSignals.length > 0) {
+        reasons.add(`解决问题接近：${sharedProblemSignals.join(' / ')}`);
+        score += sharedProblemSignals.length * 4;
+        functionalScore += sharedProblemSignals.length * 4;
+      }
+
+      const sharedIntentTerms = intersectNormalized(currentFunctionalIntentTerms, projectFunctionalIntentTerms).slice(0, 3);
+      if (sharedIntentTerms.length > 0) {
+        reasons.add(`功能意图重合：${sharedIntentTerms.join(' / ')}`);
+        score += sharedIntentTerms.length * 3;
+        functionalScore += sharedIntentTerms.length * 3;
       }
 
       const sharedTags = intersectNormalized(currentProfile.semanticTags, profile.semanticTags).slice(0, 2);
@@ -820,19 +892,13 @@ export function getRelatedProjects(projectId: number, limit = 6) {
           const cluster = clusterLookup.get(tag);
           reasons.add(`都和 ${cluster?.label || tag} 相关`);
         });
-        score += sharedTags.length * 3;
-      }
-
-      const sharedUseCases = intersectNormalized(currentProfile.useCases, profile.useCases).slice(0, 2);
-      if (sharedUseCases.length > 0) {
-        reasons.add(`用途接近：${sharedUseCases.join(' / ')}`);
-        score += sharedUseCases.length * 4;
+        score += sharedTags.length * 2;
       }
 
       const sharedKeywords = intersectNormalized(currentProfile.keywords, profile.keywords).slice(0, 3);
       if (sharedKeywords.length > 0) {
         reasons.add(`关键词重合：${sharedKeywords.join(' / ')}`);
-        score += sharedKeywords.length * 2;
+        score += sharedKeywords.length;
       }
 
       const sharedTopics = intersectNormalized(currentTopics, projectTopics).slice(0, 2);
@@ -848,6 +914,7 @@ export function getRelatedProjects(projectId: number, limit = 6) {
 
       return {
         score,
+        functionalScore,
         project: {
           ...toProjectListItem(project),
           reason: [...reasons].slice(0, 3),
@@ -855,7 +922,7 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         } satisfies RelatedProjectItem,
       };
     })
-    .filter((item) => item.score > 0)
+    .filter((item) => item.score > 0 && (item.functionalScore >= 6 || item.score >= 10))
     .sort((left, right) => right.score - left.score || right.project.stars - left.project.stars)
     .slice(0, limit)
     .map((item) => item.project);

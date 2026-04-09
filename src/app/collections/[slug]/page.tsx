@@ -17,7 +17,7 @@ export async function generateMetadata({
 
   if (!result) {
     return {
-      title: '专题页不存在',
+      title: '专题页面不存在',
       robots: {
         index: false,
         follow: false,
@@ -57,16 +57,6 @@ export default async function SpecialCollectionPage({
 
   const title = result.bucket.title;
   const description = result.bucket.description;
-  const faq = [
-    {
-      question: `${result.bucket.name} 这一类项目会收录什么？`,
-      answer: `这里会自动聚合站内已分析完成、且语义主类被识别为“${result.bucket.name}”的 GitHub Star 项目。`,
-    },
-    {
-      question: '为什么这个专题页不是手工维护的？',
-      answer: '因为它直接来自项目分析结果，会随着站内项目被分析完成而自动出现和更新，不需要单独写文章。',
-    },
-  ];
   const relatedLinks = getSpecialCollectionBuckets(20)
     .filter((item) => item.slug !== result.bucket.slug)
     .slice(0, 3)
@@ -88,7 +78,7 @@ export default async function SpecialCollectionPage({
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: '专题聚合', item: `${SITE_URL}/collections` },
+        { '@type': 'ListItem', position: 2, name: '自动专题', item: `${SITE_URL}/collections` },
         { '@type': 'ListItem', position: 3, name: title, item: `${SITE_URL}/collections/${result.bucket.slug}` },
       ],
     },
@@ -102,18 +92,6 @@ export default async function SpecialCollectionPage({
         name: project.full_name,
       })),
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faq.map((item) => ({
-        '@type': 'Question',
-        name: item.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: item.answer,
-        },
-      })),
-    },
   ];
 
   return (
@@ -124,11 +102,10 @@ export default async function SpecialCollectionPage({
       projects={result.projects}
       canonicalPath={`/collections/${result.bucket.slug}`}
       jsonLd={jsonLd}
-      faq={faq}
       relatedLinks={[
-        { href: '/collections', label: '全部专题入口' },
-        { href: '/languages', label: '全部语言入口' },
-        { href: '/topics', label: '全部标签入口' },
+        { href: '/collections', label: '全部自动专题' },
+        { href: '/languages', label: '全部编程语言' },
+        { href: '/topics', label: '全部技术标签' },
         ...relatedLinks,
       ]}
     />

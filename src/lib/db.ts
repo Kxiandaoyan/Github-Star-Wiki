@@ -275,6 +275,13 @@ export function initDatabase() {
     `);
   }
 
+  if (!hasColumn('projects', 'auto_repair_count')) {
+    db.exec(`
+      ALTER TABLE projects
+      ADD COLUMN auto_repair_count INTEGER DEFAULT 0
+    `);
+  }
+
   if (!hasColumn('project_analysis', 'semantic_data')) {
     db.exec(`
       ALTER TABLE project_analysis

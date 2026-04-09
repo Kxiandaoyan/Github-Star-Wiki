@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
             seo_title = NULL,
             seo_description = NULL,
             faq_json = NULL,
-            project_type = NULL
+            project_type = NULL,
+            auto_repair_count = 0
       `).run();
 
       db.prepare('DELETE FROM wiki_documents').run();

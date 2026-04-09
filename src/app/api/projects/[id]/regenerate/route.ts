@@ -23,19 +23,20 @@ export async function POST(
     }
 
     db.prepare(`
-      UPDATE projects
-      SET one_line_status = 'pending',
-          intro_status = 'pending',
-          wiki_status = 'pending',
-          one_line_intro = NULL,
-          chinese_intro = NULL,
-          mind_map = NULL,
-          seo_title = NULL,
-          seo_description = NULL,
-          faq_json = NULL,
-          project_type = NULL
-      WHERE id = ?
-    `).run(projectId);
+        UPDATE projects
+        SET one_line_status = 'pending',
+            intro_status = 'pending',
+            wiki_status = 'pending',
+            one_line_intro = NULL,
+            chinese_intro = NULL,
+            mind_map = NULL,
+            seo_title = NULL,
+            seo_description = NULL,
+            faq_json = NULL,
+            project_type = NULL,
+            auto_repair_count = 0
+        WHERE id = ?
+      `).run(projectId);
 
     db.prepare('DELETE FROM wiki_documents WHERE project_id = ?').run(projectId);
     db.prepare('DELETE FROM project_analysis WHERE project_id = ?').run(projectId);
