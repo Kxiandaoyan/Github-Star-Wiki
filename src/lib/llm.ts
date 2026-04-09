@@ -1,4 +1,5 @@
 import axios from 'axios';
+import OpenAI from 'openai';
 import type {
   RepositoryAnalysisResult,
   RepositoryDeepReadResult,
@@ -17,6 +18,7 @@ export interface LLMConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  apiFormat?: string;
 }
 
 export interface ChatMessage {
@@ -62,13 +64,7 @@ interface AnthropicResponse {
   }>;
 }
 
-interface OpenAIResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-}
+type LLMApiFormat = 'anthropic' | 'openai';
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
@@ -104,6 +100,49 @@ function extractErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function normalizeApiFormat(value: string | undefined, baseUrl: string): LLMApiFormat {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  if (normalizedValue === 'anthropic') {
+    return 'anthropic';
+  }
+
+  if (normalizedValue === 'openai') {
+    return 'openai';
+  }
+
+  return baseUrl.includes('/anthropic') ? 'anthropic' : 'openai';
+}
+
+function extractOpenAIMessageContent(content: unknown) {
+  if (typeof content === 'string' && content.trim()) {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => {
+        if (!part || typeof part !== 'object') {
+          return '';
+        }
+
+        const candidate = part as { type?: unknown; text?: unknown };
+        return candidate.type === 'text' && typeof candidate.text === 'string'
+          ? candidate.text
+          : '';
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
 }
 
 function parseJsonFromText(text: string) {
@@ -406,11 +445,12 @@ export class LLMClient {
     this.config = {
       ...config,
       baseUrl: trimTrailingSlash(config.baseUrl),
+      apiFormat: normalizeApiFormat(config.apiFormat, trimTrailingSlash(config.baseUrl)),
     };
   }
 
   private get isAnthropicCompatible() {
-    return this.config.baseUrl.includes('/anthropic');
+    return this.config.apiFormat === 'anthropic';
   }
 
   private isRetryableError(error: unknown): boolean {
@@ -487,26 +527,26 @@ export class LLMClient {
           return content;
         }
 
-        const response = await axios.post<OpenAIResponse>(
-          `${this.config.baseUrl}/v1/chat/completions`,
-          {
-            model: this.config.model,
-            messages,
-            temperature,
-            max_tokens: maxTokens,
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.config.apiKey}`,
-            },
-            timeout: LLMClient.REQUEST_TIMEOUT,
-          }
-        );
+        const client = new OpenAI({
+          apiKey: this.config.apiKey,
+          baseURL: this.config.baseUrl,
+          timeout: LLMClient.REQUEST_TIMEOUT,
+          maxRetries: 0,
+        });
 
-        const content = response.data.choices?.[0]?.message?.content?.trim();
+        const response = await client.chat.completions.create({
+          model: this.config.model,
+          messages: messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+          temperature,
+          max_tokens: maxTokens,
+        });
+
+        const content = extractOpenAIMessageContent(response.choices?.[0]?.message?.content);
         if (!content) {
-          throw new Error('Chat completions API returned an empty response.');
+          throw new Error('OpenAI-compatible API returned an empty response.');
         }
 
         return content;

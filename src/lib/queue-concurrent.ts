@@ -171,11 +171,13 @@ export class ConcurrentQueueProcessor {
   }
 
   private getLlmClient(apiKey: ApiKey, taskType: PipelineTaskType) {
-    const analysisModel = getSettingValue('GLM_ANALYSIS_MODEL').trim();
+    const analysisModel = getSettingValue('MODEL_ANALYSIS_NAME').trim();
+    const apiFormat = getSettingValue('MODEL_API_FORMAT').trim();
 
     return new LLMClient({
       apiKey: apiKey.api_key,
       baseUrl: apiKey.base_url,
+      apiFormat,
       model: taskType === 'generate_profile' ? apiKey.model : (analysisModel || apiKey.model),
     });
   }

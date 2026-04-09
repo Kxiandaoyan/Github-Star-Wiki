@@ -88,7 +88,8 @@ export class ErrorClassifier {
       message.includes('llm')
       || message.includes('messages api')
       || message.includes('chat completions api')
-      || message.includes('anthropic-compatible api')
+      || message.includes('anthropic api')
+      || message.includes('openai api')
     ) {
       return ErrorType.LLM_ERROR;
     }

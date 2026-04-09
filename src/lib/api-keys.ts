@@ -10,16 +10,16 @@ interface EnvApiKeyRecord {
 }
 
 function getEnvApiKeys(): EnvApiKeyRecord[] {
-  const rawKeys = getSettingValue('GLM_API_KEYS')
+  const rawKeys = getSettingValue('MODEL_API_KEYS')
     ?.split(',')
     .map((key) => key.trim())
     .filter(Boolean) ?? [];
 
-  const baseUrl = getSettingValue('GLM_BASE_URL') || 'https://open.bigmodel.cn/api/anthropic';
-  const model = getSettingValue('GLM_MODEL') || 'glm-4';
+  const baseUrl = getSettingValue('MODEL_BASE_URL') || 'https://open.bigmodel.cn/api/anthropic';
+  const model = getSettingValue('MODEL_NAME') || 'glm-4';
 
   return rawKeys.map((apiKey, index) => ({
-    name: `GLM-Key-${index + 1}`,
+    name: `MODEL-Key-${index + 1}`,
     api_key: apiKey,
     base_url: baseUrl,
     model,
@@ -31,7 +31,7 @@ export function syncApiKeysFromEnv() {
   const envKeys = getEnvApiKeys();
 
   if (envKeys.length === 0) {
-    console.warn('No GLM API keys found in environment variables.');
+    console.warn('No model API keys found in environment variables.');
     return;
   }
 

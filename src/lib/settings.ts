@@ -1,7 +1,12 @@
 import db from './db';
 
 export type SettingCategory = 'github' | 'llm' | 'queue' | 'site' | 'storage' | 'prompts';
-export type SettingInput = 'text' | 'password' | 'number' | 'textarea';
+export type SettingInput = 'text' | 'password' | 'number' | 'textarea' | 'select';
+
+export interface SettingOption {
+  label: string;
+  value: string;
+}
 
 export interface SettingDefinition {
   key: string;
@@ -9,6 +14,7 @@ export interface SettingDefinition {
   description: string;
   category: SettingCategory;
   input: SettingInput;
+  options?: SettingOption[];
   envKey?: string;
   defaultValue?: string;
   placeholder?: string;
@@ -314,39 +320,58 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     placeholder: 'ghp_xxx',
   },
   {
-    key: 'GLM_API_KEYS',
-    label: 'LLM API Keys',
+    key: 'MODEL_API_KEYS',
+    label: 'Model API Keys',
     description: '一个或多个模型 API Key，使用英文逗号分隔。保存后会同步到 api_keys 表。',
     category: 'llm',
     input: 'textarea',
-    envKey: 'GLM_API_KEYS',
+    envKey: 'MODEL_API_KEYS',
     placeholder: 'key1,key2,key3',
   },
   {
-    key: 'GLM_BASE_URL',
-    label: 'LLM Base URL',
+    key: 'MODEL_API_FORMAT',
+    label: 'API Interface Mode',
+    description: '选择当前模型接口模式。`anthropic` 表示 Anthropic Messages 接口，`openai` 表示 OpenAI Chat Completions 接口。具体厂商不限，只要兼容即可。',
+    category: 'llm',
+    input: 'select',
+    envKey: 'MODEL_API_FORMAT',
+    defaultValue: 'anthropic',
+    options: [
+      {
+        label: 'anthropic',
+        value: 'anthropic',
+      },
+      {
+        label: 'openai',
+        value: 'openai',
+      },
+    ],
+  },
+  {
+    key: 'MODEL_BASE_URL',
+    label: 'Model Base URL',
     description: '模型接口地址。',
     category: 'llm',
     input: 'text',
-    envKey: 'GLM_BASE_URL',
+    envKey: 'MODEL_BASE_URL',
     defaultValue: 'https://open.bigmodel.cn/api/anthropic',
   },
   {
-    key: 'GLM_MODEL',
-    label: 'LLM Model',
+    key: 'MODEL_NAME',
+    label: 'Model Name',
     description: '最终内容生成使用的主模型名称。',
     category: 'llm',
     input: 'text',
-    envKey: 'GLM_MODEL',
+    envKey: 'MODEL_NAME',
     defaultValue: 'glm-4',
   },
   {
-    key: 'GLM_ANALYSIS_MODEL',
-    label: 'LLM Analysis Model',
+    key: 'MODEL_ANALYSIS_NAME',
+    label: 'Analysis Model Name',
     description: '仓库分析和深读使用的模型。留空时默认复用主模型。',
     category: 'llm',
     input: 'text',
-    envKey: 'GLM_ANALYSIS_MODEL',
+    envKey: 'MODEL_ANALYSIS_NAME',
     defaultValue: '',
   },
   {

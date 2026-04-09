@@ -159,7 +159,7 @@ Star Wiki 是一个把 GitHub Star 列表整理成“可搜索、可理解、可
 - better-sqlite3
 - node-cron
 - Axios
-- GLM / Anthropic 兼容接口
+- 支持 Anthropic 兼容接口与 OpenAI SDK 兼容接口
 
 ## 快速开始
 
@@ -192,11 +192,12 @@ Copy-Item .env.example .env
 GITHUB_USERNAME=your_github_username
 GITHUB_TOKEN=your_github_token
 
-# LLM
-GLM_API_KEYS=key1,key2
-GLM_BASE_URL=https://open.bigmodel.cn/api/anthropic
-GLM_MODEL=glm-4
-GLM_ANALYSIS_MODEL=
+# Model
+MODEL_API_KEYS=key1,key2
+MODEL_API_FORMAT=anthropic
+MODEL_BASE_URL=https://open.bigmodel.cn/api/anthropic
+MODEL_NAME=glm-4
+MODEL_ANALYSIS_NAME=
 
 # Queue
 TASK_CONCURRENCY=2
@@ -229,24 +230,33 @@ ADMIN_SESSION_SECRET=change_me_too
   作用：调用 GitHub API，同步 Star 列表、读取 README、读取仓库元数据。
   是否必填：强烈建议填写。没有它也可能运行，但限额更低，更容易失败。
 
-- `GLM_API_KEYS`
-  作用：配置一个或多个 LLM Key，后台队列会用于项目分析、深读和内容生成。
+- `MODEL_API_KEYS`
+  作用：配置一个或多个模型 API Key，后台队列会用于项目分析、深读和内容生成。
   格式：多个 key 用英文逗号分隔。
   是否必填：如果要生成中文介绍、Wiki、SEO 和图谱语义画像，则必填。
 
-- `GLM_BASE_URL`
+- `MODEL_API_FORMAT`
+  作用：指定当前模型接口模式。
+  可选值：`anthropic`、`openai`
+  默认值：`anthropic`
+  用途：前者用于 Anthropic Messages 接口；后者用于 OpenAI Chat Completions 接口。具体厂商不限，只要兼容即可。
+
+- `MODEL_BASE_URL`
   作用：配置大模型接口地址。
   默认值：`https://open.bigmodel.cn/api/anthropic`
-  说明：当前项目按 Anthropic 兼容接口格式调用。
+  说明：需要与 `MODEL_API_FORMAT` 对应。
+  示例：
+  - 智谱 Anthropic 兼容：`https://open.bigmodel.cn/api/anthropic`
+  - StepFun OpenAI 接口：`https://api.stepfun.com/v1`
 
-- `GLM_MODEL`
+- `MODEL_NAME`
   作用：主内容生成模型。
   用途：生成一句话简介、中文介绍、Wiki、FAQ、SEO 等最终内容。
 
-- `GLM_ANALYSIS_MODEL`
+- `MODEL_ANALYSIS_NAME`
   作用：分析阶段模型。
   用途：用于 `analyze_repo` 和 `deep_read_repo` 阶段。
-  是否必填：可留空。留空时默认复用 `GLM_MODEL`。
+  是否必填：可留空。留空时默认复用 `MODEL_NAME`。
   建议：如果你想节省 token，可在这里放一个更便宜但还够用的模型。
 
 - `TASK_CONCURRENCY`
@@ -297,6 +307,20 @@ ADMIN_SESSION_SECRET=change_me_too
   是否必填：强烈建议填写。
   说明：不要直接复用 `ADMIN_PASSWORD`，生产环境请使用独立随机字符串。
 
+OpenAI 接口模式示例（以 StepFun 为例）：
+
+```env
+MODEL_API_KEYS=your_stepfun_key
+MODEL_API_FORMAT=openai
+MODEL_BASE_URL=https://api.stepfun.com/v1
+MODEL_NAME=step-2-mini
+MODEL_ANALYSIS_NAME=
+```
+
+说明：
+- 如果使用 StepFun、OpenAI 或其他兼容 OpenAI Chat Completions 的网关，请把 `MODEL_API_FORMAT` 切到 `openai`。
+- 如果使用兼容 Anthropic Messages 的网关，请把 `MODEL_API_FORMAT` 切到 `anthropic`。
+
 ### 4. 初始化数据库
 
 ```bash
@@ -317,7 +341,7 @@ http://localhost:3000
 
 ## 首次使用建议流程
 
-1. 配好 GitHub 和 LLM 相关环境变量
+1. 配好 GitHub 和模型接口相关环境变量
 2. 启动项目
 3. 访问 `/admin` 登录后台
 4. 检查配置是否正确
@@ -346,7 +370,7 @@ curl -X POST http://localhost:3000/api/sync
 其中：
 
 - 全量重写会清空已有生成内容并重新入队
-- 语义缓存回填不会额外消耗 LLM token，主要用于补齐历史项目的语义画像
+- 语义缓存回填不会额外消耗模型 token，主要用于补齐历史项目的语义画像
 
 ## 搜索现在是怎么做的
 

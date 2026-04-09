@@ -142,6 +142,19 @@ export function AdminSettingsForm({
                       rows={category === 'prompts' ? 10 : 4}
                       className="surface-input min-h-[120px] w-full rounded-2xl border border-border/60 px-4 py-3 text-sm outline-none"
                     />
+                  ) : item.input === 'select' ? (
+                    <select
+                      id={item.key}
+                      value={values[item.key] || ''}
+                      onChange={(event) => updateValue(item.key, event.target.value)}
+                      className="surface-input h-11 w-full rounded-2xl border border-border/60 bg-transparent px-4 py-2 text-sm outline-none"
+                    >
+                      {(item.options || []).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
                     <Input
                       id={item.key}
