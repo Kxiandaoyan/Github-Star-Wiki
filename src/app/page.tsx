@@ -29,10 +29,26 @@ const HOME_PAGE_SIZE = 21;
 const ACTIVITY_WEEKS = 24;
 
 const HOME_NAV_LINKS = [
-  { href: '/graph', label: '项目关系网图谱' },
-  { href: '/collections', label: '自动专题页' },
-  { href: '/types', label: '按项目类型浏览' },
-  { href: '/use-cases', label: '按使用场景浏览' },
+  {
+    href: '/graph',
+    label: '项目关系网图谱',
+    description: '按功能和用途查看项目之间的真实关联',
+  },
+  {
+    href: '/collections',
+    label: '自动专题页',
+    description: '按主题自动聚合，适合 SEO 和集中浏览',
+  },
+  {
+    href: '/types',
+    label: '按项目类型浏览',
+    description: '从应用、库、模板等类型快速筛选',
+  },
+  {
+    href: '/use-cases',
+    label: '按使用场景浏览',
+    description: '按用途、问题和落地场景重新组织收藏',
+  },
 ];
 
 export const dynamic = 'force-dynamic';
@@ -259,39 +275,25 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
 
       <header className="mx-auto max-w-7xl px-4 py-5 md:px-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-full">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-500 dark:fill-amber-300 dark:text-amber-300" />
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Star Wiki</p>
-                <p className="text-sm font-medium text-foreground">帮你搜索与回看 Star 过的项目</p>
-              </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-full">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-500 dark:fill-amber-300 dark:text-amber-300" />
             </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin"
-                className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                后台
-              </Link>
-              <ThemeToggle />
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Star Wiki</p>
+              <p className="text-sm font-medium text-foreground">帮你搜索与回看 Star 过的项目</p>
             </div>
           </div>
-
-          <nav className="flex flex-wrap gap-2">
-            {HOME_NAV_LINKS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              className="surface-chip rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              后台
+            </Link>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -383,7 +385,49 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </Card>
         </section>
 
-        <StarActivityGrid cells={activity} recordedCount={recordedStarCount} weeks={ACTIVITY_WEEKS} />
+        <section className="grid gap-6 xl:grid-cols-[minmax(320px,1fr)_minmax(0,2fr)]">
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Quick Access</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                    快速探索入口
+                  </h2>
+                  <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                    最常用的 4 个入口固定放在左侧，浏览和回看都会更直接。
+                  </p>
+                </div>
+                <div className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  重点入口
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {HOME_NAV_LINKS.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="group relative overflow-hidden rounded-[1.4rem] border border-border/60 bg-gradient-to-br from-background via-background to-amber-50/40 px-5 py-5 transition-all hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-[0_18px_60px_-24px_rgba(245,158,11,0.45)] dark:to-amber-950/10"
+                  >
+                    <div className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.18),transparent_35%)]" />
+                    <div className="relative flex h-full min-h-[148px] items-start justify-between gap-4">
+                      <div>
+                        <p className="text-base font-semibold text-foreground">{item.label}</p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
+                      </div>
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-400/25 bg-amber-400/12 text-amber-700 transition-transform group-hover:translate-x-0.5 dark:text-amber-300">
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <StarActivityGrid cells={activity} recordedCount={recordedStarCount} weeks={ACTIVITY_WEEKS} />
+        </section>
 
         <section className="space-y-4">
           <div className="space-y-3">

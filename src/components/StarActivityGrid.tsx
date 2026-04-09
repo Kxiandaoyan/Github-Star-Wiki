@@ -1,4 +1,7 @@
+'use client';
+
 import { CalendarDays } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -26,13 +29,16 @@ function getLevel(count: number, maxCount: number) {
 }
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(`${date}T00:00:00`));
+  const [, month, day] = date.split('-');
+  return `${Number(month)}月${Number(day)}日`;
 }
 
 export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGridProps) {
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const maxCount = Math.max(...cells.map((cell) => cell.count), 0);
   const totalInRange = cells.reduce((sum, cell) => sum + cell.count, 0);
 
@@ -55,41 +61,67 @@ export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGr
         </div>
 
         {recordedCount > 0 ? (
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="overflow-x-auto">
-              <div className="grid min-w-max grid-flow-col grid-rows-7 gap-1">
-                {cells.map((cell) => {
-                  const level = getLevel(cell.count, maxCount);
+          mounted ? (
+            <div className="flex flex-col gap-4">
+              <div className="overflow-x-auto">
+                <div className="grid min-w-max grid-flow-col grid-rows-7 gap-1">
+                  {cells.map((cell) => {
+                    const level = getLevel(cell.count, maxCount);
 
-                  return (
-                    <div
-                      key={cell.date}
-                      className={cn(
-                        'h-3.5 w-3.5 rounded-[4px] border border-transparent',
-                        level === 0 && 'bg-muted/80',
-                        level === 1 && 'bg-emerald-100 dark:bg-emerald-950/70',
-                        level === 2 && 'bg-emerald-300 dark:bg-emerald-800/80',
-                        level === 3 && 'bg-emerald-500 dark:bg-emerald-600/90',
-                        level === 4 && 'bg-emerald-700 dark:bg-emerald-400'
-                      )}
-                      title={`${formatDate(cell.date)} · ${cell.count} 次 Star`}
-                      aria-label={`${cell.date}: ${cell.count} starred repositories`}
-                    />
-                  );
-                })}
+                    return (
+                      <div
+                        key={cell.date}
+                        className={cn(
+                          'h-3.5 w-3.5 rounded-[4px] border border-transparent',
+                          level === 0 && 'bg-muted/80',
+                          level === 1 && 'bg-emerald-100 dark:bg-emerald-950/70',
+                          level === 2 && 'bg-emerald-300 dark:bg-emerald-800/80',
+                          level === 3 && 'bg-emerald-500 dark:bg-emerald-600/90',
+                          level === 4 && 'bg-emerald-700 dark:bg-emerald-400'
+                        )}
+                        title={`${formatDate(cell.date)} · ${cell.count} 次 Star`}
+                        aria-label={`${cell.date}: ${cell.count} starred repositories`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>少</span>
+                <LegendCell className="bg-muted/80" />
+                <LegendCell className="bg-emerald-100 dark:bg-emerald-950/70" />
+                <LegendCell className="bg-emerald-300 dark:bg-emerald-800/80" />
+                <LegendCell className="bg-emerald-500 dark:bg-emerald-600/90" />
+                <LegendCell className="bg-emerald-700 dark:bg-emerald-400" />
+                <span>多</span>
               </div>
             </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="overflow-x-auto">
+                <div className="grid min-w-max grid-flow-col grid-rows-7 gap-1">
+                  {cells.map((cell) => (
+                    <div
+                      key={cell.date}
+                      className="h-3.5 w-3.5 rounded-[4px] border border-transparent bg-muted/80"
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+              </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>少</span>
-              <LegendCell className="bg-muted/80" />
-              <LegendCell className="bg-emerald-100 dark:bg-emerald-950/70" />
-              <LegendCell className="bg-emerald-300 dark:bg-emerald-800/80" />
-              <LegendCell className="bg-emerald-500 dark:bg-emerald-600/90" />
-              <LegendCell className="bg-emerald-700 dark:bg-emerald-400" />
-              <span>多</span>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>少</span>
+                <LegendCell className="bg-muted/80" />
+                <LegendCell className="bg-muted/80" />
+                <LegendCell className="bg-muted/80" />
+                <LegendCell className="bg-muted/80" />
+                <LegendCell className="bg-muted/80" />
+                <span>多</span>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <div className="rounded-[1.2rem] border border-dashed border-border bg-muted/30 px-4 py-5 text-sm leading-7 text-muted-foreground">
             当前数据库还没有可用的 Star 时间记录。下一次执行同步后，这里会开始显示按日期聚合的 Star 活动。
