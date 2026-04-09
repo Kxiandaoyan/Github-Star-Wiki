@@ -150,6 +150,41 @@ function extractOpenAIMessageContent(content: unknown) {
   return '';
 }
 
+function extractOpenAIReasoningContent(reasoning: unknown) {
+  if (typeof reasoning === 'string' && reasoning.trim()) {
+    return reasoning.trim();
+  }
+
+  return extractOpenAIMessageContent(reasoning);
+}
+
+function extractOpenAIChoicePayload(choice: unknown) {
+  const parsedChoice = (choice && typeof choice === 'object' ? choice : {}) as {
+    finish_reason?: unknown;
+    message?: unknown;
+  };
+  const parsedMessage = (parsedChoice.message && typeof parsedChoice.message === 'object'
+    ? parsedChoice.message
+    : {}) as {
+    content?: unknown;
+    reasoning?: unknown;
+    reasoning_content?: unknown;
+  };
+
+  const content = extractOpenAIMessageContent(parsedMessage.content);
+  const reasoning = [parsedMessage.reasoning, parsedMessage.reasoning_content]
+    .map((value) => extractOpenAIReasoningContent(value))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  return {
+    content,
+    reasoning,
+    finishReason: typeof parsedChoice.finish_reason === 'string' ? parsedChoice.finish_reason : null,
+  };
+}
+
 function parseJsonFromText(text: string) {
   const cleaned = text
     .replace(/^\uFEFF/, '')
@@ -201,6 +236,14 @@ function parseJsonFromText(text: string) {
   }
 
   throw new Error('Unable to parse JSON content from LLM response.');
+}
+
+function tryParseJsonFromText(text: string) {
+  try {
+    return parseJsonFromText(text);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeTextField(value: unknown, fallback: string) {
@@ -458,6 +501,10 @@ export class LLMClient {
     return this.config.apiFormat === 'anthropic';
   }
 
+  private get isStepFunOpenAICompatible() {
+    return this.config.apiFormat === 'openai' && /stepfun\.com/i.test(this.config.baseUrl);
+  }
+
   private isRetryableError(error: unknown): boolean {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
@@ -553,23 +600,59 @@ export class LLMClient {
           maxRetries: 0,
         });
 
-        const response = await client.chat.completions.create({
-          model: this.config.model,
-          messages: messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-          })),
-          temperature,
-          max_tokens: maxTokens,
-        });
+        const createOpenAICompletion = async (tokenLimit?: number) =>
+          client.chat.completions.create({
+            model: this.config.model,
+            messages: messages.map((message) => ({
+              role: message.role,
+              content: message.content,
+            })),
+            temperature,
+            ...(typeof tokenLimit === 'number' ? { max_tokens: tokenLimit } : {}),
+          });
 
-        const content = extractOpenAIMessageContent(response.choices?.[0]?.message?.content);
-        if (!content) {
-          throw new Error('OpenAI-compatible API returned an empty response.');
+        let response = await createOpenAICompletion(maxTokens);
+        let parsedResponse = extractOpenAIChoicePayload(response.choices?.[0]);
+
+        if (
+          !parsedResponse.content &&
+          this.isStepFunOpenAICompatible &&
+          parsedResponse.reasoning &&
+          parsedResponse.finishReason === 'length'
+        ) {
+          console.warn(
+            `[LLM Request] StepFun reasoning-only response detected ${this.getRequestLogLabel(attempt, messages)} finish_reason=${parsedResponse.finishReason} retry=without_max_tokens`
+          );
+          response = await createOpenAICompletion();
+          parsedResponse = extractOpenAIChoicePayload(response.choices?.[0]);
         }
 
-        console.log(`[LLM Request] success ${this.getRequestLogLabel(attempt, messages)} chars=${content.length}`);
-        return content;
+        if (!parsedResponse.content && parsedResponse.reasoning) {
+          const reasoningJson = tryParseJsonFromText(parsedResponse.reasoning);
+          if (reasoningJson) {
+            console.warn(
+              `[LLM Request] OpenAI-compatible response missing content, using parseable reasoning payload ${this.getRequestLogLabel(attempt, messages)}`
+            );
+            return parsedResponse.reasoning;
+          }
+        }
+
+        if (!parsedResponse.content) {
+          const details = [
+            parsedResponse.finishReason ? `finish_reason=${parsedResponse.finishReason}` : '',
+            parsedResponse.reasoning ? `reasoning_chars=${parsedResponse.reasoning.length}` : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          throw new Error(
+            `OpenAI-compatible API returned an empty response${details ? ` (${details})` : ''}.`
+          );
+        }
+
+        console.log(
+          `[LLM Request] success ${this.getRequestLogLabel(attempt, messages)} chars=${parsedResponse.content.length}`
+        );
+        return parsedResponse.content;
       } catch (error) {
         lastError = error;
         console.warn(
@@ -636,9 +719,12 @@ export class LLMClient {
         const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         return normalizeRepositoryAnalysis(parseJsonFromText(repaired), projectName);
       }
-    } catch {
-      return {
-        projectType: 'unknown',
+      } catch (error) {
+        console.warn(
+          `[LLM Analyze] fallback project=${projectName} reason=${extractErrorMessage(error, 'Repository analysis failed')}`
+        );
+        return {
+          projectType: 'unknown',
         summary: `${projectName} 是一个开源项目，当前仓库分析阶段未能返回完整结构化结果。`,
         problemSolved: '仓库中未明确给出完整的问题定义。',
         useCases: [],
@@ -697,9 +783,12 @@ export class LLMClient {
         const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
         return normalizeRepositoryDeepRead(parseJsonFromText(repaired));
       }
-    } catch {
-      return {
-        keyFileSummaries: files.map((file) => ({
+      } catch (error) {
+        console.warn(
+          `[LLM Deep Read] fallback project=${projectName} reason=${extractErrorMessage(error, 'Repository deep read failed')}`
+        );
+        return {
+          keyFileSummaries: files.map((file) => ({
           path: file.path,
           summary: '已读取该文件，但深读阶段未返回结构化总结。',
         })),
@@ -765,30 +854,17 @@ export class LLMClient {
     const outputFormatPrompt = getPromptValueFromSnapshot(promptSnapshot, 'PROMPT_CONTENT_OUTPUT_FORMAT');
     const userPrompt = [contentPrompt, outputFormatPrompt].filter(Boolean).join('\n\n');
 
-    const result = await this.chat(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      { temperature: 0.35, maxTokens: 3200 }
-    );
-
     try {
-      const parsed = parseJsonFromText(result) as {
-        oneLineIntro?: unknown;
-        chineseIntro?: unknown;
-        wikiDocuments?: unknown;
-        mindMap?: unknown;
-        projectType?: unknown;
-        seoTitle?: unknown;
-        seoDescription?: unknown;
-        faqItems?: unknown;
-      };
-      return normalizeGeneratedProject(projectName, parsed);
-    } catch {
+      const result = await this.chat(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        { temperature: 0.35, maxTokens: 3200 }
+      );
+
       try {
-        const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
-        const repairedParsed = parseJsonFromText(repaired) as {
+        const parsed = parseJsonFromText(result) as {
           oneLineIntro?: unknown;
           chineseIntro?: unknown;
           wikiDocuments?: unknown;
@@ -798,8 +874,52 @@ export class LLMClient {
           seoDescription?: unknown;
           faqItems?: unknown;
         };
-        return normalizeGeneratedProject(projectName, repairedParsed);
+        return normalizeGeneratedProject(projectName, parsed);
       } catch {
+        try {
+          const repaired = await this.repairJsonResponseWithSnapshot(result, promptSnapshot);
+          const repairedParsed = parseJsonFromText(repaired) as {
+            oneLineIntro?: unknown;
+            chineseIntro?: unknown;
+            wikiDocuments?: unknown;
+            mindMap?: unknown;
+            projectType?: unknown;
+            seoTitle?: unknown;
+            seoDescription?: unknown;
+            faqItems?: unknown;
+          };
+          return normalizeGeneratedProject(projectName, repairedParsed);
+        } catch {
+          const fallbackText = await this.generateFallbackJson(
+            projectName,
+            description,
+            readmeContent,
+            codeStructure,
+            repositoryFacts,
+            repositoryAnalysis,
+            deepReadEvidence,
+            promptSnapshot
+          );
+          const fallbackParsed = parseJsonFromText(fallbackText) as {
+            oneLineIntro?: unknown;
+            chineseIntro?: unknown;
+            wikiDocuments?: unknown;
+            mindMap?: unknown;
+            projectType?: unknown;
+            seoTitle?: unknown;
+            seoDescription?: unknown;
+            faqItems?: unknown;
+          };
+          console.error('Failed to parse LLM response, used fallback JSON.');
+          return normalizeGeneratedProject(projectName, fallbackParsed);
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `[LLM Content] primary generation failed project=${projectName} reason=${extractErrorMessage(error, 'Repository content generation failed')}`
+      );
+
+      try {
         const fallbackText = await this.generateFallbackJson(
           projectName,
           description,
@@ -820,8 +940,13 @@ export class LLMClient {
           seoDescription?: unknown;
           faqItems?: unknown;
         };
-        console.error('Failed to parse LLM response, used fallback JSON.');
+        console.warn(`[LLM Content] fallback JSON used project=${projectName}`);
         return normalizeGeneratedProject(projectName, fallbackParsed);
+      } catch (fallbackError) {
+        console.warn(
+          `[LLM Content] deterministic fallback project=${projectName} reason=${extractErrorMessage(fallbackError, 'Fallback JSON generation failed')}`
+        );
+        return normalizeGeneratedProject(projectName, {});
       }
     }
   }
@@ -878,7 +1003,10 @@ export class LLMClient {
         };
         return normalizeGeneratedSeo(projectName, contentResult, parsed);
       }
-    } catch {
+    } catch (error) {
+      console.warn(
+        `[LLM SEO] fallback project=${projectName} reason=${extractErrorMessage(error, 'Repository SEO generation failed')}`
+      );
       return normalizeGeneratedSeo(projectName, contentResult, {});
     }
   }

@@ -100,7 +100,7 @@ export function AdminDashboard({
   const [settings, setSettings] = useState(initialSettings);
 
   return (
-    <div translate="no" className="notranslate grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_420px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_420px]">
       <AdminSettingsForm initialSettings={settings} onSaved={setSettings} />
       <AdminActions
         queue={queue}
