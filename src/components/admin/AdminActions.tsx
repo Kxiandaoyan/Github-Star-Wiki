@@ -9,6 +9,7 @@ import {
   LogOut,
   RefreshCw,
   Sparkles,
+  TestTubeDiagonal,
   WandSparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -143,14 +144,16 @@ export function AdminActions({
     startTransition(async () => {
       const response = await fetch(url, { method: 'POST' });
       const data = await response.json().catch(() => ({}));
-
+      const detailMessage = typeof data?.data?.detailMessage === 'string' ? data.data.detailMessage : '';
+      const nextMessage = [data.message, detailMessage].filter(Boolean).join('\n');
       if (!response.ok) {
-        setError(data.message || `${label}失败。`);
+        setError(nextMessage || `${label}失败。`);
         return;
       }
 
-      setMessage(data.message || `${label}已触发。`);
+      setMessage(nextMessage || `${label}已触发。`);
       router.refresh();
+      return;
     });
   }
 
@@ -202,6 +205,17 @@ export function AdminActions({
 
           <Button
             type="button"
+            onClick={() => runAction('/api/admin/model/test', '测试模型连接')}
+            disabled={isPending}
+            variant="outline"
+            className="w-full rounded-2xl"
+          >
+            {isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <TestTubeDiagonal className="h-4 w-4" />}
+            测试当前模型连接
+          </Button>
+
+          <Button
+            type="button"
             onClick={logout}
             disabled={isPending}
             variant="ghost"
@@ -212,13 +226,13 @@ export function AdminActions({
           </Button>
 
           {message ? (
-            <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+            <p className="whitespace-pre-wrap rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
               {message}
             </p>
           ) : null}
 
           {error ? (
-            <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <p className="whitespace-pre-wrap rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </p>
           ) : null}

@@ -5,6 +5,7 @@ import type {
   RepositoryDeepReadResult,
   RepositoryScanResult,
 } from './project-analysis';
+import { maskApiKey } from './model-runtime';
 import {
   getPromptValueFromSnapshot,
   PipelinePromptSnapshot,
@@ -470,6 +471,17 @@ export class LLMClient {
     return new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
 
+  private getRequestLogLabel(attempt: number, messages: ChatMessage[]) {
+    return [
+      `format=${this.config.apiFormat}`,
+      `model=${this.config.model}`,
+      `baseUrl=${this.config.baseUrl}`,
+      `apiKey=${maskApiKey(this.config.apiKey)}`,
+      `attempt=${attempt + 1}/${LLMClient.MAX_RETRIES + 1}`,
+      `messages=${messages.length}`,
+    ].join(' ');
+  }
+
   async chat(
     messages: ChatMessage[],
     options: {
@@ -488,6 +500,8 @@ export class LLMClient {
       }
 
       try {
+        console.log(`[LLM Request] start ${this.getRequestLogLabel(attempt, messages)}`);
+
         if (this.isAnthropicCompatible) {
           const systemPrompt = messages
             .filter((message) => message.role === 'system')
@@ -528,6 +542,7 @@ export class LLMClient {
             throw new Error('Anthropic-compatible API returned an empty response.');
           }
 
+          console.log(`[LLM Request] success ${this.getRequestLogLabel(attempt, messages)} chars=${content.length}`);
           return content;
         }
 
@@ -553,9 +568,13 @@ export class LLMClient {
           throw new Error('OpenAI-compatible API returned an empty response.');
         }
 
+        console.log(`[LLM Request] success ${this.getRequestLogLabel(attempt, messages)} chars=${content.length}`);
         return content;
       } catch (error) {
         lastError = error;
+        console.warn(
+          `[LLM Request] failed ${this.getRequestLogLabel(attempt, messages)} reason=${extractErrorMessage(error, 'LLM request failed')}`
+        );
         if (attempt < LLMClient.MAX_RETRIES && this.isRetryableError(error)) {
           continue;
         }

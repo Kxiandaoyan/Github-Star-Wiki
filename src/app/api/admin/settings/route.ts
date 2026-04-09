@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/lib/admin-auth';
 import { apiError, apiSuccess } from '@/lib/api-response';
 import { syncApiKeysFromEnv } from '@/lib/api-keys';
 import { reloadRuntimeServices } from '@/lib/app';
+import { formatRuntimeModelSummary, getRuntimeModelSummary } from '@/lib/model-runtime';
 import { getSettingsByCategory, saveSettings } from '@/lib/settings';
 
 export async function GET(request: NextRequest) {
@@ -31,8 +32,16 @@ export async function PUT(request: NextRequest) {
     saveSettings(updates);
     syncApiKeysFromEnv();
     await reloadRuntimeServices();
-
-    return apiSuccess({ settings: getSettingsByCategory() }, '设置已保存并重新加载。');
+    const runtimeSummary = getRuntimeModelSummary();
+    const runtimeSummaryText = formatRuntimeModelSummary(runtimeSummary);
+    return apiSuccess(
+      {
+        settings: getSettingsByCategory(),
+        runtimeSummary,
+        detailMessage: `当前生效模型配置: ${runtimeSummaryText}`,
+      },
+      '设置已保存并重新加载。'
+    );
   } catch (error) {
     return apiError('保存设置失败。', 500, 'SAVE_SETTINGS_FAILED', error instanceof Error ? error.message : undefined);
   }

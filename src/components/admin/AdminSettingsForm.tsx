@@ -65,8 +65,10 @@ export function AdminSettingsForm({
       });
 
       const data = await response.json().catch(() => ({}));
+      const detailMessage = typeof data?.data?.detailMessage === 'string' ? data.data.detailMessage : '';
+      const nextMessage = [data.message, detailMessage].filter(Boolean).join('\n');
       if (!response.ok) {
-        setError(data.message || '保存配置失败。');
+        setError(nextMessage || '保存配置失败。');
         return;
       }
 
@@ -74,7 +76,7 @@ export function AdminSettingsForm({
       setSettings(nextSettings);
       setValues(buildValueMap(nextSettings));
       onSaved(nextSettings);
-      setMessage(data.message || '配置已保存，并已重新加载运行时设置。');
+      setMessage(nextMessage || '配置已保存，并已重新加载运行时设置。');
     });
   }
 
@@ -98,13 +100,13 @@ export function AdminSettingsForm({
       </div>
 
       {message ? (
-        <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+        <p className="whitespace-pre-wrap rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           {message}
         </p>
       ) : null}
 
       {error ? (
-        <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <p className="whitespace-pre-wrap rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : null}

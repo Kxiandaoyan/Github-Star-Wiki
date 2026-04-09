@@ -3,6 +3,7 @@ import { syncStarredRepos } from './github';
 import { ConcurrentQueueProcessor } from './queue-concurrent';
 import { syncApiKeysFromEnv } from './api-keys';
 import { initDatabase, rebuildProjectsSearchIndex } from './db';
+import { logRuntimeModelSummary } from './model-runtime';
 import { getNumberSetting, seedAppSettings } from './settings';
 
 let cronJob: ScheduledTask | null = null;
@@ -45,6 +46,7 @@ export function initApp() {
   rebuildProjectsSearchIndex();
   seedAppSettings();
   syncApiKeysFromEnv();
+  logRuntimeModelSummary('startup');
 
   const concurrency = getNumberSetting('TASK_CONCURRENCY', 3);
   processor = new ConcurrentQueueProcessor(concurrency);
@@ -81,6 +83,8 @@ export async function reloadRuntimeServices() {
   }
 
   await cleanup();
+  syncApiKeysFromEnv();
+  logRuntimeModelSummary('reload');
 
   const concurrency = getNumberSetting('TASK_CONCURRENCY', 3);
   processor = new ConcurrentQueueProcessor(concurrency);
