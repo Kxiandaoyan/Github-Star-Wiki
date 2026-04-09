@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Network, Orbit, Search, Sparkles, Star } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +36,11 @@ interface LayoutData {
   clusters: PositionedCluster[];
 }
 
+interface RelatedNodeEntry {
+  node: GraphNode;
+  link: GraphLink;
+}
+
 type DisplayScale = 'focus' | 'balanced' | 'all';
 
 const displayScaleOptions: Array<{ id: DisplayScale; label: string; limit: number }> = [
@@ -62,6 +68,76 @@ function hexToRgba(hex: string, alpha: number) {
   const b = Number.parseInt(value.slice(4, 6), 16);
 
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getLabelMetrics(context: CanvasRenderingContext2D, text: string) {
+  const metrics = context.measureText(text);
+  return {
+    width: metrics.width,
+    actualHeight: (metrics.actualBoundingBoxAscent || 9) + (metrics.actualBoundingBoxDescent || 4),
+  };
+}
+
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
+function drawTextChip(options: {
+  context: CanvasRenderingContext2D;
+  x: number;
+  y: number;
+  text: string;
+  isDarkTheme: boolean;
+  accent: string;
+  emphasized?: boolean;
+}) {
+  const { context, x, y, text, isDarkTheme, accent, emphasized = false } = options;
+  if (!text.trim()) {
+    return;
+  }
+
+  context.save();
+  context.font = emphasized ? '600 12px sans-serif' : '500 11px sans-serif';
+  const metrics = getLabelMetrics(context, text);
+  const horizontalPadding = emphasized ? 10 : 8;
+  const verticalPadding = emphasized ? 6 : 5;
+  const width = metrics.width + horizontalPadding * 2;
+  const height = metrics.actualHeight + verticalPadding * 2;
+  const chipX = x;
+  const chipY = y - height / 2;
+
+  drawRoundedRect(context, chipX, chipY, width, height, 999);
+  context.fillStyle = isDarkTheme ? 'rgba(7,10,18,0.82)' : 'rgba(255,255,255,0.9)';
+  context.strokeStyle = hexToRgba(accent, isDarkTheme ? 0.38 : 0.24);
+  context.lineWidth = emphasized ? 1.2 : 1;
+  context.shadowColor = isDarkTheme ? 'rgba(0,0,0,0.34)' : 'rgba(15,23,42,0.12)';
+  context.shadowBlur = emphasized ? 18 : 10;
+  context.fill();
+  context.shadowBlur = 0;
+  context.stroke();
+
+  context.fillStyle = isDarkTheme ? 'rgba(248,250,252,0.98)' : 'rgba(15,23,42,0.95)';
+  context.textBaseline = 'middle';
+  context.fillText(text, chipX + horizontalPadding, y);
+  context.restore();
 }
 
 function getNodeRadius(stars: number, emphasized = false) {
@@ -279,9 +355,14 @@ function buildStarfield(width: number, height: number) {
   });
 }
 
+function isRelatedNodeEntry(entry: GraphNode | RelatedNodeEntry): entry is RelatedNodeEntry {
+  return 'node' in entry && 'link' in entry;
+}
+
 export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { resolvedTheme } = useTheme();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [activeClusterId, setActiveClusterId] = useState<string | null>(null);
@@ -290,6 +371,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null);
   const [displayScale, setDisplayScale] = useState<DisplayScale>(graph.stats.nodeCount > 900 ? 'balanced' : 'all');
   const [size, setSize] = useState({ width: 1200, height: 760 });
+  const isDarkTheme = resolvedTheme !== 'light';
 
   const clusterLookup = useMemo(
     () => new Map(graph.clusters.map((cluster) => [cluster.id, cluster])),
@@ -395,8 +477,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         };
       })
       .filter((item): item is { node: GraphNode; link: GraphLink } => Boolean(item.node))
-      .sort((left, right) => right.link.weight - left.link.weight || right.node.stars - left.node.stars)
-      .slice(0, 8);
+      .sort((left, right) => right.link.weight - left.link.weight || right.node.stars - left.node.stars);
   }, [graph.nodes, selectedLinks, selectedNode]);
 
   const recommendedNodes = useMemo(() => {
@@ -462,14 +543,17 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
     const draw = () => {
       frame += 1;
       const pulse = Math.sin(frame * 0.03) * 0.5 + 0.5;
+      const canvasFill = isDarkTheme ? 'rgba(255,255,255,0.03)' : 'rgba(15,23,42,0.03)';
 
       context.clearRect(0, 0, size.width, size.height);
-      context.fillStyle = 'rgba(255,255,255,0.03)';
+      context.fillStyle = canvasFill;
       context.fillRect(0, 0, size.width, size.height);
 
       starfield.forEach((star) => {
         context.beginPath();
-        context.fillStyle = `rgba(255,255,255,${star.alpha + Math.sin(frame * 0.01 * star.drift) * 0.04})`;
+        context.fillStyle = isDarkTheme
+          ? `rgba(255,255,255,${star.alpha + Math.sin(frame * 0.01 * star.drift) * 0.04})`
+          : `rgba(15,23,42,${Math.max(0.06, star.alpha * 0.42 + Math.sin(frame * 0.01 * star.drift) * 0.02)})`;
         context.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         context.fill();
       });
@@ -495,13 +579,24 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         context.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
         context.fill();
 
-        context.font = '600 13px sans-serif';
-        context.fillStyle = 'rgba(255,255,255,0.92)';
-        context.fillText(item.cluster.label, item.x - item.radius, item.y + 5);
+        drawTextChip({
+          context,
+          x: item.x - Math.min(item.radius, 44),
+          y: item.y,
+          text: item.cluster.label,
+          isDarkTheme,
+          accent: item.cluster.color,
+          emphasized: isActive || isHovered,
+        });
 
-        context.font = '12px sans-serif';
-        context.fillStyle = 'rgba(255,255,255,0.7)';
-        context.fillText(`${item.visibleCount}`, item.x - 6, item.y + 24);
+        drawTextChip({
+          context,
+          x: item.x - 14,
+          y: item.y + 24,
+          text: `${item.visibleCount}`,
+          isDarkTheme,
+          accent: item.cluster.color,
+        });
       });
 
       if (selectedNode) {
@@ -531,7 +626,8 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         const isHovered = item.node.id === hoveredNodeId;
         const isPinned = pinnedNeighborIds.has(item.node.id);
         const highlight = isSelected || isHovered || isPinned;
-        const label = item.node.fullName.split('/').at(-1) || item.node.fullName;
+        const shortLabel = item.node.fullName.split('/').at(-1) || item.node.fullName;
+        const displayLabel = isSelected || isPinned ? item.node.fullName : shortLabel;
 
         context.beginPath();
         context.fillStyle = isSelected
@@ -545,10 +641,16 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         context.fill();
         context.shadowBlur = 0;
 
-        if (isSelected || isHovered || item.node.stars >= 12000) {
-          context.font = isSelected ? '600 12px sans-serif' : '12px sans-serif';
-          context.fillStyle = 'rgba(255,255,255,0.9)';
-          context.fillText(label, item.x + item.radius + 5, item.y + 4);
+        if (isSelected || isHovered || isPinned || item.node.stars >= 12000) {
+          drawTextChip({
+            context,
+            x: item.x + item.radius + 6,
+            y: item.y,
+            text: displayLabel,
+            isDarkTheme,
+            accent: color,
+            emphasized: isSelected || isPinned,
+          });
         }
       });
 
@@ -569,6 +671,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
     selectedId,
     selectedLinks,
     selectedNode,
+    isDarkTheme,
     size.height,
     size.width,
     starfield,
@@ -790,6 +893,9 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
                 </p>
 
                 <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="rounded-full">
+                    {relatedNodes.length} 个直接关联
+                  </Badge>
                   {selectedNode.semanticTags.map((tag) => {
                     const cluster = clusterLookup.get(tag);
                     if (!cluster) {
@@ -833,14 +939,10 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
               <Sparkles className="h-4 w-4 text-primary" />
               {selectedNode ? '直接关联' : '推荐浏览'}
             </div>
-            <div className="mt-4 space-y-3">
-              {recommendedNodes.length > 0 ? recommendedNodes.map((node) => {
-                const link = selectedNode
-                  ? selectedLinks.find((item) =>
-                    (item.source === selectedNode.id && item.target === node.id)
-                    || (item.target === selectedNode.id && item.source === node.id)
-                  )
-                  : null;
+            <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+              {(selectedNode ? relatedNodes : recommendedNodes).length > 0 ? (selectedNode ? relatedNodes : recommendedNodes).map((entry) => {
+                const node = isRelatedNodeEntry(entry) ? entry.node : entry;
+                const link = isRelatedNodeEntry(entry) ? entry.link : null;
 
                 return (
                   <button
@@ -854,7 +956,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{node.fullName}</p>
+                        <p className="text-sm font-medium leading-6 text-foreground">{node.fullName}</p>
                         <p className="mt-2 text-sm leading-7 text-muted-foreground">
                           {link ? link.reason.join(' / ') : node.oneLineIntro || node.description || '查看这个项目的详情。'}
                         </p>
