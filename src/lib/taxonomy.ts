@@ -458,22 +458,38 @@ function getProjectsForDefinition(definition: SpecialCollectionDefinition) {
     .map(toProjectListItem);
 }
 
-function getUseCaseBucketsFromDefinitions() {
-  return useCaseDefinitions
-    .map((definition) => {
-      const count = getProjectsForDefinition(definition).length;
+function dedupeSpecialCollectionBuckets(items: SpecialCollectionBucket[]) {
+  const seen = new Set<string>();
 
-      return {
-        name: definition.name,
-        slug: definition.slug,
-        count,
-        title: definition.title,
-        description: definition.description,
-        href: `/use-cases/${definition.slug}`,
-      } satisfies SpecialCollectionBucket;
-    })
-    .filter((bucket) => bucket.count > 0)
-    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  return items.filter((item) => {
+    const slug = item.slug.trim().toLowerCase();
+    if (!slug || seen.has(slug)) {
+      return false;
+    }
+
+    seen.add(slug);
+    return true;
+  });
+}
+
+function getUseCaseBucketsFromDefinitions() {
+  return dedupeSpecialCollectionBuckets(
+    useCaseDefinitions
+      .map((definition) => {
+        const count = getProjectsForDefinition(definition).length;
+
+        return {
+          name: definition.name,
+          slug: definition.slug,
+          count,
+          title: definition.title,
+          description: definition.description,
+          href: `/use-cases/${definition.slug}`,
+        } satisfies SpecialCollectionBucket;
+      })
+      .filter((bucket) => bucket.count > 0)
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+  );
 }
 
 void specialCollectionDefinitions;
