@@ -110,12 +110,27 @@ function dedupeStrings(values: string[], limit: number) {
   return result.slice(0, limit);
 }
 
+const ignoredFunctionalPhrases = new Set([
+  '开源项目',
+  '项目介绍',
+  '项目说明',
+  '仓库说明',
+  '工具',
+  '项目',
+  '应用',
+  '平台',
+  '当前仓库信息不足',
+  '暂时无法准确提炼其核心问题',
+  '当前仓库信息不足，暂时无法准确提炼其核心问题',
+]);
+
 function extractFunctionalPhrases(value: string | null | undefined, limit: number) {
   return dedupeStrings(
     (value || '')
       .split(/[，。；;、,.!?\n|/]+/)
       .map((part) => part.trim())
-      .filter((part) => part.length >= 2 && part.length <= 32),
+      .filter((part) => part.length >= 2 && part.length <= 32)
+      .filter((part) => !ignoredFunctionalPhrases.has(part)),
     limit
   );
 }
@@ -559,13 +574,26 @@ export function getProjectsByTopicSlug(slug: string) {
     return null;
   }
 
-  const projects = getProjectsBase().filter((project) =>
-    parseTopics(project.topics).some((topic) => slugifyTaxonomyValue(topic) === slug)
-  );
+  const projects = db.prepare(`
+    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type
+    FROM projects
+    ORDER BY stars DESC, synced_at DESC
+  `).all() as Array<ProjectListItem & { topics?: string | null }>;
 
   return {
     bucket,
-    projects: projects.map(toProjectListItem),
+    projects: projects.filter((project) =>
+      parseTopics(project.topics).some((topic) => slugifyTaxonomyValue(topic) === slug)
+    ).map((project) => ({
+      id: project.id,
+      full_name: project.full_name,
+      description: project.description,
+      one_line_intro: project.one_line_intro,
+      stars: project.stars,
+      language: project.language,
+      one_line_status: project.one_line_status,
+      project_type: project.project_type,
+    })),
   };
 }
 
@@ -621,9 +649,6 @@ export function getProjectTypeBuckets(limit = 12): SpecialCollectionBucket[] {
     SELECT project_type, COUNT(*) as count
     FROM projects
     WHERE project_type IS NOT NULL AND TRIM(project_type) != '' AND project_type != 'unknown'
-      AND one_line_status = 'completed'
-      AND intro_status = 'completed'
-      AND wiki_status = 'completed'
     GROUP BY project_type
     ORDER BY count DESC, project_type ASC
   `).all() as Array<{ project_type: string; count: number }>;
@@ -653,9 +678,6 @@ export function getProjectsByProjectTypeSlug(slug: string) {
     SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type
     FROM projects
     WHERE LOWER(project_type) = ?
-      AND one_line_status = 'completed'
-      AND intro_status = 'completed'
-      AND wiki_status = 'completed'
     ORDER BY stars DESC, synced_at DESC
   `).all(rawProjectType) as ProjectListItem[];
 
@@ -851,13 +873,6 @@ export function getRelatedProjects(projectId: number, limit = 6) {
       let score = 0;
       let functionalScore = 0;
 
-      if (currentProfile.primaryCluster === profile.primaryCluster) {
-        const cluster = clusterLookup.get(profile.primaryCluster);
-        reasons.add(`同属 ${cluster?.label || profile.primaryCluster}`);
-        score += 5;
-        functionalScore += 3;
-      }
-
       const sharedUseCases = intersectNormalized(currentProfile.useCases, profile.useCases).slice(0, 3);
       if (sharedUseCases.length > 0) {
         reasons.add(`用途接近：${sharedUseCases.join(' / ')}`);
@@ -886,15 +901,6 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         functionalScore += sharedIntentTerms.length * 3;
       }
 
-      const sharedTags = intersectNormalized(currentProfile.semanticTags, profile.semanticTags).slice(0, 2);
-      if (sharedTags.length > 0) {
-        sharedTags.forEach((tag) => {
-          const cluster = clusterLookup.get(tag);
-          reasons.add(`都和 ${cluster?.label || tag} 相关`);
-        });
-        score += sharedTags.length * 2;
-      }
-
       const sharedKeywords = intersectNormalized(currentProfile.keywords, profile.keywords).slice(0, 3);
       if (sharedKeywords.length > 0) {
         reasons.add(`关键词重合：${sharedKeywords.join(' / ')}`);
@@ -907,14 +913,39 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         score += sharedTopics.length;
       }
 
+      const sharedTags = intersectNormalized(currentProfile.semanticTags, profile.semanticTags).slice(0, 2);
+      if (sharedTags.length > 0) {
+        sharedTags.forEach((tag) => {
+          const cluster = clusterLookup.get(tag);
+          reasons.add(`都和 ${cluster?.label || tag} 相关`);
+        });
+        score += sharedTags.length * 2;
+      }
+
+      if (currentProfile.primaryCluster === profile.primaryCluster) {
+        const cluster = clusterLookup.get(profile.primaryCluster);
+        reasons.add(`同属 ${cluster?.label || profile.primaryCluster}`);
+        score += 3;
+      }
+
       if (current.project_type && project.project_type && current.project_type === project.project_type) {
         reasons.add('项目形态接近');
         score += 1;
       }
 
+      const hasStrongFunctionalMatch = sharedUseCases.length > 0
+        || sharedCapabilities.length > 0
+        || sharedProblemSignals.length > 0
+        || sharedIntentTerms.length >= 2
+        || (
+          currentProfile.primaryCluster === profile.primaryCluster
+          && (sharedKeywords.length > 0 || sharedTopics.length > 0)
+        );
+
       return {
         score,
         functionalScore,
+        hasStrongFunctionalMatch,
         project: {
           ...toProjectListItem(project),
           reason: [...reasons].slice(0, 3),
@@ -922,7 +953,7 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         } satisfies RelatedProjectItem,
       };
     })
-    .filter((item) => item.score > 0 && (item.functionalScore >= 6 || item.score >= 10))
+    .filter((item) => item.score > 0 && item.hasStrongFunctionalMatch && (item.functionalScore >= 6 || item.score >= 6))
     .sort((left, right) => right.score - left.score || right.project.stars - left.project.stars)
     .slice(0, limit)
     .map((item) => item.project);

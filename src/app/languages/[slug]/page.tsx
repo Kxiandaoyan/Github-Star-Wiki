@@ -18,22 +18,17 @@ export async function generateMetadata({
   if (!result) {
     return {
       title: '编程语言页面不存在',
-      robots: {
-        index: false,
-        follow: false,
-      },
+      robots: { index: false, follow: false },
     };
   }
 
   const title = `${result.bucket.name} 开源项目合集与使用指南`;
-  const description = `整理 ${result.bucket.count} 个 ${result.bucket.name} 相关 GitHub Star 项目，方便查看用途、安装方式、使用场景和站内详情页内容。`;
+  const description = `整理 ${result.bucket.count} 个与 ${result.bucket.name} 相关的 GitHub Star 项目，便于查看用途、安装方式、使用场景和详情内容。`;
 
   return {
     title,
     description,
-    alternates: {
-      canonical: `/languages/${result.bucket.slug}`,
-    },
+    alternates: { canonical: `/languages/${result.bucket.slug}` },
     openGraph: {
       title,
       description,

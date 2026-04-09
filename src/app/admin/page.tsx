@@ -263,13 +263,13 @@ export default async function AdminPage() {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              杩斿洖鍓嶅彴
-            </Link>
+          <Link
+            href="/"
+            className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回前台
+          </Link>
             <div className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground">
               <Settings2 className="h-4 w-4 text-primary" />
               `/admin`
@@ -282,10 +282,11 @@ export default async function AdminPage() {
       <main translate="no" className="notranslate mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
         <section className="mb-8 surface-panel rounded-[2rem] p-7 md:p-9">
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-4xl">
-            Star Wiki 鍚庡彴
+            Star Wiki 后台
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-8 text-muted-foreground md:text-base">
-            杩欓噷缁熶竴绠＄悊 GitHub銆佹ā鍨嬨€佽皟搴︿笌鎻愮ず璇嶏紝鍚屾椂鐩存帴鐪嬪埌澶氶樁娈电敓鎴愯繘搴︺€佸唴瀹硅川閲忎笌 SEO 缂哄彛锛屾柟渚跨敤鏈€浣庣淮鎶ゆ垚鏈繚鎸佸唴瀹圭ǔ瀹氥€?          </p>
+            这里统一管理 GitHub、模型、调度与提示词，同时直接查看多阶段生成进度、内容质量与 SEO 缺口，尽量用最低维护成本保持站点内容稳定。
+          </p>
         </section>
 
         <AdminDashboard

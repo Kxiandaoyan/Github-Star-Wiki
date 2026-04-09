@@ -154,7 +154,6 @@ export function AdminActions({
 
       setMessage(nextMessage || `${label}已触发。`);
       router.refresh();
-      return;
     });
   }
 

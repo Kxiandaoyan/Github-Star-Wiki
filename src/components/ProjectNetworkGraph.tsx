@@ -207,9 +207,7 @@ function pickVisibleNodes(options: {
   const groups = graph.clusters
     .map((cluster) => ({
       clusterId: cluster.id,
-      nodes: matchedNodes
-        .filter((node) => node.cluster === cluster.id)
-        .sort((left, right) => right.stars - left.stars),
+      nodes: matchedNodes.filter((node) => node.cluster === cluster.id).sort((left, right) => right.stars - left.stars),
     }))
     .filter((group) => group.nodes.length > 0);
 
@@ -228,8 +226,7 @@ function pickVisibleNodes(options: {
     return ensurePinnedNodes(result, selectedNode, pinnedNeighborIds);
   }
 
-  const result = interleaveNodes(groups.map((group) => group.nodes), maxNodes);
-  return ensurePinnedNodes(result, selectedNode, pinnedNeighborIds);
+  return ensurePinnedNodes(interleaveNodes(groups.map((group) => group.nodes), maxNodes), selectedNode, pinnedNeighborIds);
 }
 
 function buildLayout(options: {
@@ -330,10 +327,7 @@ function buildLayout(options: {
     }
   });
 
-  return {
-    nodes: positionedNodes,
-    clusters: positionedClusters,
-  } satisfies LayoutData;
+  return { nodes: positionedNodes, clusters: positionedClusters } satisfies LayoutData;
 }
 
 function buildStarfield(width: number, height: number) {
@@ -364,10 +358,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
   const [size, setSize] = useState({ width: 1200, height: 760 });
   const isDarkTheme = resolvedTheme !== 'light';
 
-  const clusterLookup = useMemo(
-    () => new Map(graph.clusters.map((cluster) => [cluster.id, cluster])),
-    [graph.clusters]
-  );
+  const clusterLookup = useMemo(() => new Map(graph.clusters.map((cluster) => [cluster.id, cluster])), [graph.clusters]);
 
   const adjacency = useMemo(() => {
     const map = new Map<number, GraphLink[]>();
@@ -378,10 +369,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
     return map;
   }, [graph.links]);
 
-  const selectedNode = useMemo(
-    () => graph.nodes.find((node) => node.id === selectedId) || null,
-    [graph.nodes, selectedId]
-  );
+  const selectedNode = useMemo(() => graph.nodes.find((node) => node.id === selectedId) || null, [graph.nodes, selectedId]);
   const focusClusterId = selectedNode?.cluster || activeClusterId;
 
   const pinnedNeighborIds = useMemo(() => {
@@ -389,11 +377,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
       return new Set<number>();
     }
 
-    return new Set(
-      (adjacency.get(selectedId) || [])
-        .map((link) => (link.source === selectedId ? link.target : link.source))
-        .slice(0, 8)
-    );
+    return new Set((adjacency.get(selectedId) || []).map((link) => (link.source === selectedId ? link.target : link.source)).slice(0, 8));
   }, [adjacency, selectedId]);
 
   const matchedNodes = useMemo(() => {
@@ -414,45 +398,22 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         ...node.capabilities,
         ...node.topics,
         ...clusterLabels,
-      ]
-        .join('\n')
-        .toLowerCase()
-        .includes(q);
+      ].join('\n').toLowerCase().includes(q);
     });
   }, [clusterLookup, deferredQuery, graph.nodes]);
 
   const visibleNodes = useMemo(
-    () => pickVisibleNodes({
-      graph,
-      matchedNodes,
-      scale: displayScale,
-      activeClusterId: focusClusterId,
-      selectedNode,
-      pinnedNeighborIds,
-    }),
+    () => pickVisibleNodes({ graph, matchedNodes, scale: displayScale, activeClusterId: focusClusterId, selectedNode, pinnedNeighborIds }),
     [displayScale, focusClusterId, graph, matchedNodes, pinnedNeighborIds, selectedNode]
   );
 
   const layout = useMemo(
-    () => buildLayout({
-      clusters: graph.clusters,
-      visibleNodes,
-      width: size.width,
-      height: size.height,
-      activeClusterId: focusClusterId,
-    }),
+    () => buildLayout({ clusters: graph.clusters, visibleNodes, width: size.width, height: size.height, activeClusterId: focusClusterId }),
     [focusClusterId, graph.clusters, size.height, size.width, visibleNodes]
   );
 
-  const positionedNodeLookup = useMemo(
-    () => new Map(layout.nodes.map((item) => [item.node.id, item])),
-    [layout.nodes]
-  );
-
-  const selectedLinks = useMemo(
-    () => (selectedId ? (adjacency.get(selectedId) || []) : []),
-    [adjacency, selectedId]
-  );
+  const positionedNodeLookup = useMemo(() => new Map(layout.nodes.map((item) => [item.node.id, item])), [layout.nodes]);
+  const selectedLinks = useMemo(() => (selectedId ? (adjacency.get(selectedId) || []) : []), [adjacency, selectedId]);
 
   const relatedNodes = useMemo(() => {
     if (!selectedNode) {
@@ -462,10 +423,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
     return selectedLinks
       .map((link) => {
         const targetId = link.source === selectedNode.id ? link.target : link.source;
-        return {
-          node: graph.nodes.find((item) => item.id === targetId) || null,
-          link,
-        };
+        return { node: graph.nodes.find((item) => item.id === targetId) || null, link };
       })
       .filter((item): item is { node: GraphNode; link: GraphLink } => Boolean(item.node))
       .sort((left, right) => right.link.weight - left.link.weight || right.node.stars - left.node.stars);
@@ -740,9 +698,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Semantic Galaxy</p>
-                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                  按用途组织的项目关系网
-                </h2>
+                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">按用途组织的项目关系网络</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full">{graph.stats.nodeCount} 项目</Badge>
@@ -758,7 +714,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
                   <Input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="搜索项目名、用途、主题词"
+                    placeholder="搜索项目名、用途、能力或主题词"
                     className="surface-input h-11 rounded-full border-border/60 pl-10"
                   />
                 </div>
@@ -807,9 +763,8 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
 
             <div ref={containerRef} className="relative h-[74vh] min-h-[640px] overflow-hidden">
               <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
-
               <div className="pointer-events-none absolute bottom-4 left-4 max-w-sm rounded-[1.4rem] border border-border/60 bg-background/60 px-4 py-3 text-sm leading-7 text-muted-foreground backdrop-blur-xl">
-                图谱优先按“用途和功能”聚类，而不是按编程语言分堆。选中项目后才展示真实关联边，避免 500 到 2000 个项目时画面失控。
+                图谱优先按“用途和功能”聚类，而不是按编程语言分堆。选中项目后只展示真实关联边，避免大量项目同时出现时画面失控。
               </div>
             </div>
           </div>
@@ -825,8 +780,8 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
             </div>
             <div className="mt-4 space-y-3 text-sm leading-7 text-muted-foreground">
               <p>当前画布展示 <span className="font-medium text-foreground">{visibleNodes.length}</span> / {matchedNodes.length} 个项目。</p>
-              <p>默认会均匀抽样各个语义簇，避免大项目集只剩下一团噪点。</p>
-              <p>点簇看领域，点项目看细节；有搜索词时会优先保留命中项目。</p>
+              <p>默认会均匀抽样各个语义簇，避免大簇把整个图谱挤成一团。</p>
+              <p>点语义簇看领域，点项目看细节；输入搜索词后会优先保留命中的项目。</p>
             </div>
           </CardContent>
         </Card>
@@ -836,7 +791,7 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
             <CardContent className="p-6">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Orbit className="h-4 w-4 text-primary" />
-                聚焦语义簇
+                当前聚焦语义簇
               </div>
               <div className="mt-4">
                 <div className="flex items-center gap-2">
@@ -866,13 +821,11 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
                 </div>
 
                 <p className="text-sm leading-7 text-muted-foreground">
-                  {selectedNode.oneLineIntro || selectedNode.description || '这个项目还没有生成足够清晰的一句话介绍。'}
+                  {selectedNode.oneLineIntro || selectedNode.description || '这个项目还没有生成足够清晰的一句话简介。'}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full">
-                    {relatedNodes.length} 个直接关联
-                  </Badge>
+                  <Badge variant="outline" className="rounded-full">{relatedNodes.length} 个直接关联</Badge>
                   {selectedNode.semanticTags.map((tag) => {
                     const cluster = clusterLookup.get(tag);
                     if (!cluster) {
@@ -903,45 +856,38 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
               <div className="space-y-3">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Selected Project</p>
                 <p className="text-sm leading-7 text-muted-foreground">
-                  先点一个项目节点。右侧会显示一句话介绍、用途标签，以及它在这张语义关系网中的直接邻居。
+                  先点一个项目节点。右侧会显示一句话介绍、用途标签，以及它在这张关系网里的直接关联项目。
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
+
         {selectedNode ? (
           <Card className="surface-panel rounded-[2rem] shadow-none">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="h-4 w-4 text-primary" />
-                ????
+                关联项目
               </div>
               <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-                {relatedNodes.length > 0 ? relatedNodes.map((entry) => {
-                  const node = entry.node;
-                  const link = entry.link;
-
-                  return (
-                    <button
-                      key={node.id}
-                      type="button"
-                      onClick={() => setSelectedId(node.id)}
-                      className={cn(
-                        'surface-chip w-full rounded-[1.4rem] px-4 py-4 text-left transition-colors',
-                        'hover:border-primary/30'
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium leading-6 text-foreground">{node.fullName}</p>
-                          <p className="mt-2 text-sm leading-7 text-muted-foreground">{link.reason.join(' / ')}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{formatStars(node.stars)}</span>
+                {relatedNodes.length > 0 ? relatedNodes.map((entry) => (
+                  <button
+                    key={entry.node.id}
+                    type="button"
+                    onClick={() => setSelectedId(entry.node.id)}
+                    className={cn('surface-chip w-full rounded-[1.4rem] px-4 py-4 text-left transition-colors', 'hover:border-primary/30')}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-6 text-foreground">{entry.node.fullName}</p>
+                        <p className="mt-2 text-sm leading-7 text-muted-foreground">{entry.link.reason.join(' / ')}</p>
                       </div>
-                    </button>
-                  );
-                }) : (
-                  <p className="text-sm leading-7 text-muted-foreground">???????????????</p>
+                      <span className="text-xs text-muted-foreground">{formatStars(entry.node.stars)}</span>
+                    </div>
+                  </button>
+                )) : (
+                  <p className="text-sm leading-7 text-muted-foreground">当前没有足够强的功能关联项目可展示。</p>
                 )}
               </div>
             </CardContent>

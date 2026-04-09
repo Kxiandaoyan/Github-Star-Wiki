@@ -66,7 +66,7 @@ const projectTypeLabelMap: Record<string, string> = {
   app: '应用项目',
   library: '库 / SDK',
   cli: '命令行工具',
-  plugin: '插件扩展',
+  plugin: '插件 / 扩展',
   ui: 'UI 组件库',
   template: '模板 / Starter',
   docs: '文档型项目',
@@ -134,10 +134,10 @@ function getMindMapFallback(projectType: string | null) {
   }
 
   if (type === 'template' || type === 'config') {
-    return '这个仓库更偏模板或配置分发，结构可能很轻，不一定适合抽成稳定的思维导图。';
+    return '这个仓库更偏模板或配置分发，结构可能较轻，不一定适合抽成稳定的思维导图。';
   }
 
-  return '当前仓库信息不足，或者结构不够稳定，暂时没有生成可靠的思维导图。';
+  return '当前仓库信息不足，或结构不够稳定，暂时没有生成可靠的思维导图。';
 }
 
 function getProjectTaskLabel(taskType: string | null | undefined, taskStatus: string | null | undefined) {
@@ -151,7 +151,7 @@ function getProjectTaskLabel(taskType: string | null | undefined, taskStatus: st
     case 'deep_read_repo':
       return `${prefix}深读关键代码`;
     case 'generate_profile':
-      return `${prefix}生成介绍与文档`;
+      return `${prefix}生成介绍与文案`;
     default:
       return taskStatus === 'processing' ? '正在生成内容' : '等待生成内容';
   }
@@ -560,7 +560,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 <ActionLink href={project.html_url} icon={Github} label="GitHub 仓库" compact />
                 {project.homepage ? (
                   <ActionLink href={project.homepage} icon={ExternalLink} label="项目主页" compact />
-                ) : null}
+                ) : null}
               </div>
             </section>
 

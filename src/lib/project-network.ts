@@ -33,6 +33,8 @@ export interface GraphNode {
   capabilities: string[];
   topics: string[];
   relatedTopics: string[];
+  problemSignals: string[];
+  functionalTerms: string[];
 }
 
 export interface GraphLink {
@@ -77,6 +79,63 @@ function parseJson<T>(value: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+function normalizeText(value: string | null | undefined) {
+  return (value || '').trim().toLowerCase();
+}
+
+function dedupe(values: string[], limit: number) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    const normalized = normalizeText(trimmed);
+
+    if (!trimmed || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    result.push(trimmed);
+  });
+
+  return result.slice(0, limit);
+}
+
+const ignoredFunctionalPhrases = new Set([
+  '开源项目',
+  '项目介绍',
+  '项目说明',
+  '仓库说明',
+  '工具',
+  '项目',
+  '应用',
+  '平台',
+  '当前仓库信息不足',
+  '暂时无法准确提炼其核心问题',
+  '当前仓库信息不足，暂时无法准确提炼其核心问题',
+]);
+
+function extractFunctionalPhrases(value: string | null | undefined, limit: number) {
+  return dedupe(
+    (value || '')
+      .split(/[，。；;、,.!?\n|/]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 2 && part.length <= 32)
+      .filter((part) => !ignoredFunctionalPhrases.has(part)),
+    limit
+  );
+}
+
+function buildFunctionalIntentTerms(profile: ProjectSemanticProfile) {
+  return dedupe([
+    ...profile.useCases,
+    ...profile.capabilities,
+    ...extractFunctionalPhrases(profile.problemSolved, 3),
+    ...extractFunctionalPhrases(profile.summary, 2),
+  ], 10);
 }
 
 function buildLinkReason(reasonSet: Set<string>) {
@@ -135,12 +194,17 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
       capabilities: semanticProfile.capabilities,
       topics,
       relatedTopics: topics.map((topic) => topic.trim().toLowerCase()),
+      problemSignals: extractFunctionalPhrases(semanticProfile.problemSolved, 3),
+      functionalTerms: buildFunctionalIntentTerms(semanticProfile),
     };
   });
 
   const nodeLookup = new Map(nodes.map((node) => [node.id, node]));
   const clusterMembers = new Map<string, number[]>();
   const tagMembers = new Map<string, number[]>();
+  const useCaseMembers = new Map<string, number[]>();
+  const capabilityMembers = new Map<string, number[]>();
+  const intentMembers = new Map<string, number[]>();
   const keywordMembers = new Map<string, number[]>();
   const topicMembers = new Map<string, number[]>();
   const projectTypeMembers = new Map<string, number[]>();
@@ -150,6 +214,18 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
 
     node.semanticTags.forEach((tag) => {
       tagMembers.set(tag, [...(tagMembers.get(tag) || []), node.id]);
+    });
+
+    node.useCases.forEach((useCase) => {
+      useCaseMembers.set(useCase, [...(useCaseMembers.get(useCase) || []), node.id]);
+    });
+
+    node.capabilities.forEach((capability) => {
+      capabilityMembers.set(capability, [...(capabilityMembers.get(capability) || []), node.id]);
+    });
+
+    node.functionalTerms.forEach((term) => {
+      intentMembers.set(term, [...(intentMembers.get(term) || []), node.id]);
     });
 
     node.semanticKeywords.forEach((keyword) => {
@@ -165,6 +241,15 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
     }
   });
 
+  const validUseCaseMembers = new Map(
+    [...useCaseMembers.entries()].filter(([, members]) => members.length >= 2 && members.length <= 80)
+  );
+  const validCapabilityMembers = new Map(
+    [...capabilityMembers.entries()].filter(([, members]) => members.length >= 2 && members.length <= 80)
+  );
+  const validIntentMembers = new Map(
+    [...intentMembers.entries()].filter(([, members]) => members.length >= 2 && members.length <= 120)
+  );
   const validKeywordMembers = new Map(
     [...keywordMembers.entries()].filter(([, members]) => members.length >= 2 && members.length <= 160)
   );
@@ -176,9 +261,15 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
   const linkKeys = new Set<string>();
 
   nodes.forEach((node) => {
-    const candidateScores = new Map<number, { weight: number; reasons: Set<string> }>();
+    const candidateScores = new Map<number, { weight: number; functionalWeight: number; reasons: Set<string> }>();
 
-    const addCandidates = (candidateIds: number[], weight: number, reason: string, maxCandidates: number) => {
+    const addCandidates = (
+      candidateIds: number[],
+      weight: number,
+      reason: string,
+      maxCandidates: number,
+      functionalWeight = 0
+    ) => {
       let count = 0;
 
       candidateIds.forEach((candidateId) => {
@@ -186,48 +277,78 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
           return;
         }
 
-        const current = candidateScores.get(candidateId) || { weight: 0, reasons: new Set<string>() };
+        const current = candidateScores.get(candidateId) || {
+          weight: 0,
+          functionalWeight: 0,
+          reasons: new Set<string>(),
+        };
         current.weight += weight;
+        current.functionalWeight += functionalWeight;
         current.reasons.add(reason);
         candidateScores.set(candidateId, current);
         count += 1;
       });
     };
 
-    node.semanticTags.forEach((tag) => {
-      const cluster = clusterLookup.get(tag);
-      if (!cluster) {
-        return;
-      }
-
+    const primaryCluster = clusterLookup.get(node.cluster);
+    if (primaryCluster) {
       addCandidates(
-        tagMembers.get(tag) || [],
-        tag === node.cluster ? 6 : 4,
-        tag === node.cluster ? `同属 ${cluster.label}` : `都和 ${cluster.label} 相关`,
-        180
+        clusterMembers.get(node.cluster) || [],
+        3,
+        `同属 ${primaryCluster.label}`,
+        160
       );
+    }
+
+    node.semanticTags
+      .filter((tag) => tag !== node.cluster)
+      .forEach((tag) => {
+        const cluster = clusterLookup.get(tag);
+        if (!cluster) {
+          return;
+        }
+
+        addCandidates(
+          tagMembers.get(tag) || [],
+          2,
+          `都与 ${cluster.label} 相关`,
+          120
+        );
+      });
+
+    node.useCases.slice(0, 6).forEach((useCase) => {
+      addCandidates(validUseCaseMembers.get(useCase) || [], 8, `用途相近：${useCase}`, 100, 8);
     });
 
-    node.semanticKeywords.slice(0, 8).forEach((keyword) => {
-      addCandidates(validKeywordMembers.get(keyword) || [], 3, `都和 ${keyword} 相关`, 120);
+    node.capabilities.slice(0, 6).forEach((capability) => {
+      addCandidates(validCapabilityMembers.get(capability) || [], 6, `能力接近：${capability}`, 100, 6);
+    });
+
+    node.functionalTerms.slice(0, 8).forEach((term) => {
+      addCandidates(validIntentMembers.get(term) || [], 4, `功能意图重合：${term}`, 100, 4);
+    });
+
+    node.semanticKeywords.slice(0, 6).forEach((keyword) => {
+      addCandidates(validKeywordMembers.get(keyword) || [], 2, `关键词相关：${keyword}`, 100);
     });
 
     node.relatedTopics.slice(0, 4).forEach((topic) => {
-      addCandidates(validTopicMembers.get(topic) || [], 1, `都涉及 ${topic}`, 80);
+      addCandidates(validTopicMembers.get(topic) || [], 1, `Topic 交集：${topic}`, 80);
     });
 
     if (node.projectType && node.projectType !== 'unknown') {
-      addCandidates(projectTypeMembers.get(node.projectType) || [], 1, '项目形态接近', 120);
+      addCandidates(projectTypeMembers.get(node.projectType) || [], 1, '项目形态接近', 100);
     }
 
     [...candidateScores.entries()]
       .map(([candidateId, value]) => ({
         target: nodeLookup.get(candidateId),
         weight: value.weight,
+        functionalWeight: value.functionalWeight,
         reason: buildLinkReason(value.reasons),
       }))
-      .filter((item): item is { target: GraphNode; weight: number; reason: string[] } => Boolean(item.target))
-      .filter((item) => item.weight >= 5)
+      .filter((item): item is { target: GraphNode; weight: number; functionalWeight: number; reason: string[] } => Boolean(item.target))
+      .filter((item) => item.functionalWeight >= 6 && item.weight >= 8)
       .sort((left, right) => right.weight - left.weight || right.target.stars - left.target.stars)
       .slice(0, 6)
       .forEach((item) => {

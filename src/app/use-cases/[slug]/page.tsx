@@ -18,22 +18,17 @@ export async function generateMetadata({
   if (!result) {
     return {
       title: '使用场景页面不存在',
-      robots: {
-        index: false,
-        follow: false,
-      },
+      robots: { index: false, follow: false },
     };
   }
 
   const title = result.bucket.title;
-  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”场景相关的 GitHub Star 项目，帮助你从真实用途而不是单一技术关键词重新发现项目。`;
+  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”场景相关的 GitHub Star 项目，帮助你从真实用途而不是单个技术关键词重新发现项目。`;
 
   return {
     title,
     description,
-    alternates: {
-      canonical: result.bucket.href,
-    },
+    alternates: { canonical: result.bucket.href },
     openGraph: {
       title,
       description,

@@ -18,22 +18,17 @@ export async function generateMetadata({
   if (!result) {
     return {
       title: '项目类型页面不存在',
-      robots: {
-        index: false,
-        follow: false,
-      },
+      robots: { index: false, follow: false },
     };
   }
 
   const title = `${result.bucket.title}与使用说明`;
-  const description = `整理 ${result.bucket.count} 个属于“${result.bucket.name}”类型的 GitHub Star 项目，方便快速判断用途、适用场景与继续阅读顺序。`;
+  const description = `整理 ${result.bucket.count} 个属于“${result.bucket.name}”类型的 GitHub Star 项目，便于快速判断用途、适用场景和阅读顺序。`;
 
   return {
     title,
     description,
-    alternates: {
-      canonical: result.bucket.href,
-    },
+    alternates: { canonical: result.bucket.href },
     openGraph: {
       title,
       description,

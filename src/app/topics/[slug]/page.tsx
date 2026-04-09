@@ -18,22 +18,17 @@ export async function generateMetadata({
   if (!result) {
     return {
       title: '技术标签页面不存在',
-      robots: {
-        index: false,
-        follow: false,
-      },
+      robots: { index: false, follow: false },
     };
   }
 
   const title = `${result.bucket.name} 开源项目合集与使用说明`;
-  const description = `整理 ${result.bucket.count} 个与 ${result.bucket.name} 相关的 GitHub Star 项目，方便查看用途、安装方式、适用场景和详情页内容。`;
+  const description = `整理 ${result.bucket.count} 个与 ${result.bucket.name} 相关的 GitHub Star 项目，便于快速查看用途、安装方式、适用场景和详情内容。`;
 
   return {
     title,
     description,
-    alternates: {
-      canonical: `/topics/${result.bucket.slug}`,
-    },
+    alternates: { canonical: `/topics/${result.bucket.slug}` },
     openGraph: {
       title,
       description,
@@ -56,7 +51,7 @@ export default async function TopicCollectionPage({
   }
 
   const title = `${result.bucket.name} 开源项目合集`;
-  const description = `这里聚合了 ${result.bucket.count} 个与 ${result.bucket.name} 相关的开源项目，适合快速判断有哪些工具值得继续深入。`;
+  const description = `这里聚合了 ${result.bucket.count} 个与 ${result.bucket.name} 相关的开源项目，适合快速判断哪些工具值得继续深入。`;
 
   const jsonLd = [
     {

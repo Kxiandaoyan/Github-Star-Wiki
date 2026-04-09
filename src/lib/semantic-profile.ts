@@ -39,7 +39,7 @@ export const SEMANTIC_CLUSTER_DEFINITIONS: SemanticClusterDefinition[] = [
   {
     id: 'agent-workflows',
     label: 'Agent 工作流',
-    description: '聚合智能体、多代理、MCP、提示编排与自主执行相关项目。',
+    description: '聚合智能体、多代理协作、MCP、提示编排与自主执行相关项目。',
     color: '#0f62fe',
     keywords: ['ai agent', 'agent', 'agentic', 'assistant', 'copilot', 'multi-agent', 'mcp', 'tool calling'],
     topicKeywords: ['agent', 'agents', 'assistant', 'multi-agent', 'agentic', 'mcp', 'copilot'],
@@ -47,7 +47,7 @@ export const SEMANTIC_CLUSTER_DEFINITIONS: SemanticClusterDefinition[] = [
   {
     id: 'automation',
     label: '自动化',
-    description: '聚合自动执行、浏览器自动化、工作流编排、抓取与任务调度项目。',
+    description: '聚合自动执行、浏览器自动化、工作流编排、抓取与任务调度相关项目。',
     color: '#f97316',
     keywords: ['automation', 'automate', 'workflow', 'orchestration', 'scraper', 'crawler', 'browser automation', 'rpa'],
     topicKeywords: ['automation', 'workflow', 'orchestration', 'scraper', 'crawler', 'browser-automation', 'rpa'],
@@ -145,6 +145,9 @@ const genericTerms = new Set([
   '仓库',
   '框架',
   '应用',
+  '当前仓库信息不足',
+  '暂时无法准确提炼其核心问题',
+  '当前仓库信息不足 暂时无法准确提炼其核心问题',
 ]);
 
 function normalizeText(value: string | null | undefined) {
@@ -180,7 +183,7 @@ function sanitizePhrase(value: string) {
 function extractTextPhrases(value: string | null | undefined, limit: number) {
   return dedupe(
     sanitizePhrase(value || '')
-      .split(/[。；;,.!?\n|/]+/)
+      .split(/[，。；;,.!?\n|/]+/)
       .map((part) => part.trim())
       .filter((part) => part.length >= 2 && part.length <= 28)
       .filter((part) => !genericTerms.has(normalizeText(part))),
@@ -236,7 +239,7 @@ export function deriveProjectSemanticProfile(input: SemanticDeriveInput): Projec
     || `${input.projectName} 是一个开源项目。`;
   const problemSolved = input.analysis?.problemSolved
     || extractTextPhrases(input.chineseIntro || input.description, 1)[0]
-    || '当前仓库信息未明确给出完整的问题定义。';
+    || '当前仓库信息不足，暂时无法准确提炼其核心问题。';
 
   const keywords = dedupe([
     ...topics,

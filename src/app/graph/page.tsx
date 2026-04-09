@@ -68,7 +68,7 @@ export default async function GraphPage({ searchParams }: GraphPageProps) {
           </h1>
           <p className="mt-4 max-w-4xl text-sm leading-8 text-muted-foreground md:text-base">
             这里不是按时间顺序翻 Star 列表，而是按“这些项目解决什么问题、适合什么场景、彼此为什么相关”重新组织你的收藏。
-            当项目量达到几百上千时，这比单纯的列表更容易帮你重新发现有价值的工具。
+            当项目量达到几百上千时，这比单纯的列表更容易帮你重新发现真正有价值的工具。
           </p>
         </section>
 

@@ -55,7 +55,7 @@ export function CollectionPage({
               聚合页面
             </span>
             <span className="surface-chip rounded-full px-3 py-1 text-xs text-foreground">
-              {bucket.count} 个项目
+              共 {bucket.count} 个项目
             </span>
           </div>
           <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
@@ -81,11 +81,17 @@ export function CollectionPage({
         </section>
 
         <section className="mt-8">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectCard key={project.id} {...project} />
-            ))}
-          </div>
+          {projects.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {projects.map((project) => (
+                <ProjectCard key={project.id} {...project} />
+              ))}
+            </div>
+          ) : (
+            <div className="surface-panel rounded-[1.8rem] px-6 py-8 text-sm leading-7 text-muted-foreground">
+              当前聚合页还没有可展示的项目。
+            </div>
+          )}
         </section>
       </main>
     </div>

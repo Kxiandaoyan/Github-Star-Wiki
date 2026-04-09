@@ -18,22 +18,17 @@ export async function generateMetadata({
   if (!result) {
     return {
       title: '专题页面不存在',
-      robots: {
-        index: false,
-        follow: false,
-      },
+      robots: { index: false, follow: false },
     };
   }
 
   const title = result.bucket.title;
-  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”主题相关的 GitHub Star 项目，帮助你从用途、场景与使用方式重新整理收藏过的开源项目。`;
+  const description = `自动聚合 ${result.bucket.count} 个与“${result.bucket.name}”主题相关的 GitHub Star 项目，帮助你按用途、场景和使用方式重新整理收藏。`;
 
   return {
     title,
     description,
-    alternates: {
-      canonical: `/collections/${result.bucket.slug}`,
-    },
+    alternates: { canonical: `/collections/${result.bucket.slug}` },
     openGraph: {
       title,
       description,
