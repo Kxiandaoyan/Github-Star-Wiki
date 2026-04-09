@@ -209,11 +209,93 @@ SYNC_INTERVAL_MINUTES=60
 # Site
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
+# Storage
+REPO_CLONE_PATH=./data/repos
+LOG_PATH=./logs
+
 # Admin
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change_me
 ADMIN_SESSION_SECRET=change_me_too
 ```
+
+每个配置的作用如下：
+
+- `GITHUB_USERNAME`
+  作用：指定要同步哪个 GitHub 账号的 Star 列表。
+  是否必填：在没有 `GITHUB_TOKEN` 时建议填写；如果只用 Token 读取当前登录用户，也可以不填。
+
+- `GITHUB_TOKEN`
+  作用：调用 GitHub API，同步 Star 列表、读取 README、读取仓库元数据。
+  是否必填：强烈建议填写。没有它也可能运行，但限额更低，更容易失败。
+
+- `GLM_API_KEYS`
+  作用：配置一个或多个 LLM Key，后台队列会用于项目分析、深读和内容生成。
+  格式：多个 key 用英文逗号分隔。
+  是否必填：如果要生成中文介绍、Wiki、SEO 和图谱语义画像，则必填。
+
+- `GLM_BASE_URL`
+  作用：配置大模型接口地址。
+  默认值：`https://open.bigmodel.cn/api/anthropic`
+  说明：当前项目按 Anthropic 兼容接口格式调用。
+
+- `GLM_MODEL`
+  作用：主内容生成模型。
+  用途：生成一句话简介、中文介绍、Wiki、FAQ、SEO 等最终内容。
+
+- `GLM_ANALYSIS_MODEL`
+  作用：分析阶段模型。
+  用途：用于 `analyze_repo` 和 `deep_read_repo` 阶段。
+  是否必填：可留空。留空时默认复用 `GLM_MODEL`。
+  建议：如果你想节省 token，可在这里放一个更便宜但还够用的模型。
+
+- `TASK_CONCURRENCY`
+  作用：后台并发处理任务数。
+  默认建议：`2`
+  影响：越大处理越快，但也更容易同时消耗更多 token 和 API 配额。
+
+- `MAX_RETRY_COUNT`
+  作用：单个任务失败后的最大重试次数。
+  默认建议：`3`
+  影响：值太小容易过早失败，值太大则可能反复浪费请求。
+
+- `ANALYSIS_FILE_LIMIT`
+  作用：单个项目进入深读阶段时，最多读取多少个关键文件。
+  默认建议：`8`
+  影响：值越大，理解可能更完整，但 token 消耗也更高。
+
+- `SYNC_INTERVAL_MINUTES`
+  作用：定时同步 GitHub Star 列表的周期，单位是分钟。
+  默认建议：`60`
+  说明：项目启动后会按这个周期自动检查同步。
+
+- `NEXT_PUBLIC_SITE_URL`
+  作用：站点公开地址。
+  用途：生成 canonical、Open Graph、sitemap 等 SEO 信息。
+  本地开发：可填 `http://localhost:3000`
+  生产环境：改成你的正式域名。
+
+- `REPO_CLONE_PATH`
+  作用：预留的仓库克隆目录配置。
+  现状：当前版本不是核心依赖，但建议保留，便于后续扩展。
+
+- `LOG_PATH`
+  作用：预留的日志目录配置。
+  现状：当前版本不是核心依赖，但建议保留，便于后续扩展。
+
+- `ADMIN_USERNAME`
+  作用：后台登录用户名。
+  是否必填：如果要使用 `/admin` 后台，则必填。
+
+- `ADMIN_PASSWORD`
+  作用：后台登录密码。
+  是否必填：如果要使用 `/admin` 后台，则必填。
+  建议：不要使用弱密码，也不要把真实密码提交到仓库。
+
+- `ADMIN_SESSION_SECRET`
+  作用：后台登录态签名密钥。
+  是否必填：强烈建议填写。
+  说明：不要直接复用 `ADMIN_PASSWORD`，生产环境请使用独立随机字符串。
 
 ### 4. 初始化数据库
 
