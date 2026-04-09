@@ -7,8 +7,6 @@ import type {
 } from './project-analysis';
 import { maskApiKey } from './model-runtime';
 import {
-  getBooleanSetting,
-  getNumberSetting,
   getPromptValueFromSnapshot,
   PipelinePromptSnapshot,
   renderPromptTemplate,
@@ -532,6 +530,18 @@ function normalizeGeneratedProject(projectName: string, parsed: {
 export class LLMClient {
   private config: LLMConfig;
   private static readonly DEEP_READ_MAX_REQUEST_BYTES = 256 * 1024;
+  private static readonly REQUEST_TIMEOUT_MS = 60000;
+  private static readonly MAX_RETRIES = 3;
+  private static readonly RETRY_BASE_DELAY_MS = 2000;
+  private static readonly REASONING_RETRY_ENABLED = true;
+  private static readonly JSON_REPAIR_MAX_TOKENS = 3200;
+  private static readonly ANALYSIS_MAX_TOKENS = 1800;
+  private static readonly DEEP_READ_MAX_TOKENS = 2200;
+  private static readonly FALLBACK_MAX_TOKENS = 2800;
+  private static readonly CONTENT_MAX_TOKENS = 3200;
+  private static readonly SEO_MAX_TOKENS = 2200;
+  private static readonly DEEP_READ_FILE_CHAR_LIMIT = 3200;
+  private static readonly DEEP_READ_TOTAL_CHAR_LIMIT = 14000;
 
   constructor(config: LLMConfig) {
     this.config = {
@@ -550,31 +560,46 @@ export class LLMClient {
   }
 
   private getRequestTimeoutMs() {
-    return Math.max(10000, getNumberSetting('LLM_REQUEST_TIMEOUT_MS', 60000));
+    return LLMClient.REQUEST_TIMEOUT_MS;
   }
 
   private getMaxRetries() {
-    return Math.max(0, getNumberSetting('LLM_REQUEST_MAX_RETRIES', 3));
+    return LLMClient.MAX_RETRIES;
   }
 
   private getRetryBaseDelayMs() {
-    return Math.max(200, getNumberSetting('LLM_RETRY_BASE_DELAY_MS', 2000));
+    return LLMClient.RETRY_BASE_DELAY_MS;
   }
 
   private shouldRetryReasoningOnly() {
-    return getBooleanSetting('LLM_REASONING_RETRY_ENABLED', true);
+    return LLMClient.REASONING_RETRY_ENABLED;
   }
 
-  private getStageMaxTokens(settingKey: string, fallback: number) {
-    return Math.max(256, getNumberSetting(settingKey, fallback));
+  private getStageMaxTokens(stage: 'jsonRepair' | 'analysis' | 'deepRead' | 'fallback' | 'content' | 'seo') {
+    switch (stage) {
+      case 'jsonRepair':
+        return LLMClient.JSON_REPAIR_MAX_TOKENS;
+      case 'analysis':
+        return LLMClient.ANALYSIS_MAX_TOKENS;
+      case 'deepRead':
+        return LLMClient.DEEP_READ_MAX_TOKENS;
+      case 'fallback':
+        return LLMClient.FALLBACK_MAX_TOKENS;
+      case 'content':
+        return LLMClient.CONTENT_MAX_TOKENS;
+      case 'seo':
+        return LLMClient.SEO_MAX_TOKENS;
+      default:
+        return LLMClient.CONTENT_MAX_TOKENS;
+    }
   }
 
   private getDeepReadFileCharLimit() {
-    return Math.max(800, getNumberSetting('LLM_DEEP_READ_FILE_CHAR_LIMIT', 3200));
+    return LLMClient.DEEP_READ_FILE_CHAR_LIMIT;
   }
 
   private getDeepReadTotalCharLimit() {
-    return Math.max(2000, getNumberSetting('LLM_DEEP_READ_TOTAL_CHAR_LIMIT', 14000));
+    return LLMClient.DEEP_READ_TOTAL_CHAR_LIMIT;
   }
 
   private isRetryableError(error: unknown): boolean {
@@ -779,7 +804,7 @@ export class LLMClient {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      { temperature: 0, maxTokens: this.getStageMaxTokens('LLM_JSON_REPAIR_MAX_TOKENS', 3200) }
+      { temperature: 0, maxTokens: this.getStageMaxTokens('jsonRepair') }
     );
   }
 
@@ -805,7 +830,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.1, maxTokens: this.getStageMaxTokens('LLM_ANALYSIS_MAX_TOKENS', 1800) }
+        { temperature: 0.1, maxTokens: this.getStageMaxTokens('analysis') }
       );
 
       try {
@@ -919,7 +944,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.1, maxTokens: this.getStageMaxTokens('LLM_DEEP_READ_MAX_TOKENS', 2200) }
+        { temperature: 0.1, maxTokens: this.getStageMaxTokens('deepRead') }
       );
 
       try {
@@ -972,7 +997,7 @@ export class LLMClient {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      { temperature: 0.2, maxTokens: this.getStageMaxTokens('LLM_FALLBACK_MAX_TOKENS', 2800) }
+      { temperature: 0.2, maxTokens: this.getStageMaxTokens('fallback') }
     );
   }
 
@@ -1005,7 +1030,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.35, maxTokens: this.getStageMaxTokens('LLM_CONTENT_MAX_TOKENS', 3200) }
+        { temperature: 0.35, maxTokens: this.getStageMaxTokens('content') }
       );
 
       try {
@@ -1127,7 +1152,7 @@ export class LLMClient {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        { temperature: 0.2, maxTokens: this.getStageMaxTokens('LLM_SEO_MAX_TOKENS', 2200) }
+        { temperature: 0.2, maxTokens: this.getStageMaxTokens('seo') }
       );
 
       try {

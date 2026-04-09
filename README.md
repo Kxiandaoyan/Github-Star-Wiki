@@ -198,18 +198,6 @@ MODEL_API_FORMAT=anthropic
 MODEL_BASE_URL=https://open.bigmodel.cn/api/anthropic
 MODEL_NAME=glm-4
 MODEL_ANALYSIS_NAME=
-LLM_REQUEST_TIMEOUT_MS=60000
-LLM_REQUEST_MAX_RETRIES=3
-LLM_RETRY_BASE_DELAY_MS=2000
-LLM_REASONING_RETRY_ENABLED=1
-LLM_ANALYSIS_MAX_TOKENS=1800
-LLM_DEEP_READ_MAX_TOKENS=2200
-LLM_CONTENT_MAX_TOKENS=3200
-LLM_SEO_MAX_TOKENS=2200
-LLM_JSON_REPAIR_MAX_TOKENS=3200
-LLM_FALLBACK_MAX_TOKENS=2800
-LLM_DEEP_READ_FILE_CHAR_LIMIT=3200
-LLM_DEEP_READ_TOTAL_CHAR_LIMIT=14000
 
 # Queue
 TASK_CONCURRENCY=2
@@ -327,11 +315,6 @@ MODEL_API_FORMAT=openai
 MODEL_BASE_URL=https://api.stepfun.com/v1
 MODEL_NAME=step-2-mini
 MODEL_ANALYSIS_NAME=
-LLM_REQUEST_TIMEOUT_MS=90000
-LLM_REQUEST_MAX_RETRIES=4
-LLM_REASONING_RETRY_ENABLED=1
-LLM_DEEP_READ_FILE_CHAR_LIMIT=2400
-LLM_DEEP_READ_TOTAL_CHAR_LIMIT=10000
 ```
 
 说明：
@@ -466,47 +449,6 @@ npm run start
 - 建议为后台配置独立的 `ADMIN_SESSION_SECRET`
 - 如果项目量很大，优先调小 `TASK_CONCURRENCY` 和 `ANALYSIS_FILE_LIMIT`
 - 思维导图不是强制生成，文档型或结构不稳定项目可能会返回空
-
-## LLM Runtime Tuning
-
-从这个版本开始，LLM 相关的稳定性、token 成本和 `deep_read_repo` 负载控制已经加入 `.env` 和 `/admin` 后台配置。
-
-- `LLM_REQUEST_TIMEOUT_MS`
-  单次 LLM 请求超时时间，单位毫秒。StepFun 或其他响应偏慢的 OpenAI 兼容网关建议适当调高。
-- `LLM_REQUEST_MAX_RETRIES`
-  单次 LLM 请求的自动重试次数。这个值控制的是 API 请求，不是队列任务本体。
-- `LLM_RETRY_BASE_DELAY_MS`
-  重试的基础等待时间，系统会在此基础上做指数退避。
-- `LLM_REASONING_RETRY_ENABLED`
-  当 OpenAI 兼容模型只返回 `reasoning` 不返回 `content` 时，是否自动再发起一次补请求。StepFun 建议保持 `1`。
-- `LLM_ANALYSIS_MAX_TOKENS`
-  `analyze_repo` 阶段的 token 上限。
-- `LLM_DEEP_READ_MAX_TOKENS`
-  `deep_read_repo` 阶段的 token 上限。
-- `LLM_CONTENT_MAX_TOKENS`
-  `generate_profile` 主内容生成阶段的 token 上限。
-- `LLM_SEO_MAX_TOKENS`
-  SEO 标题、描述、FAQ 生成阶段的 token 上限。
-- `LLM_JSON_REPAIR_MAX_TOKENS`
-  JSON 修复阶段的 token 上限。
-- `LLM_FALLBACK_MAX_TOKENS`
-  主流程生成失败后，保守版 JSON 生成阶段的 token 上限。
-- `LLM_DEEP_READ_FILE_CHAR_LIMIT`
-  深读阶段中每个关键文件最多发送给 LLM 的字符数。值越小，超时风险越低，但信息也会更少。
-- `LLM_DEEP_READ_TOTAL_CHAR_LIMIT`
-  深读阶段组合后发送给 LLM 的总字符上限。
-
-StepFun / OpenAI 兼容网关可以先从这组值开始：
-
-```env
-LLM_REQUEST_TIMEOUT_MS=90000
-LLM_REQUEST_MAX_RETRIES=4
-LLM_REASONING_RETRY_ENABLED=1
-LLM_DEEP_READ_FILE_CHAR_LIMIT=2400
-LLM_DEEP_READ_TOTAL_CHAR_LIMIT=10000
-```
-
-如果你更关注 token 成本，可以优先下调 `LLM_DEEP_READ_MAX_TOKENS` 和 `LLM_CONTENT_MAX_TOKENS`。这些参数现在也可以在 `/admin` 后台直接修改。
 
 ## License
 
