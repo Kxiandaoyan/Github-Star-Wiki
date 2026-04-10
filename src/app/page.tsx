@@ -10,7 +10,7 @@ import {
   Star,
   Users,
 } from 'lucide-react';
-import { BackgroundParticles } from '@/components/BackgroundParticlesClient';
+import { BackgroundParticles } from '@/components/BackgroundParticles';
 import { HeroCodeBackdrop } from '@/components/HeroCodeBackdrop';
 import { LanguageFilter } from '@/components/LanguageFilter';
 import { ProjectCard } from '@/components/ProjectCard';
