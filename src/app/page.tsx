@@ -10,12 +10,7 @@ import {
   Star,
   Users,
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const BackgroundParticles = dynamic(
-  () => import('@/components/BackgroundParticles').then((mod) => ({ default: mod.BackgroundParticles })),
-  { ssr: false }
-);
+import { BackgroundParticles } from '@/components/BackgroundParticlesClient';
 import { HeroCodeBackdrop } from '@/components/HeroCodeBackdrop';
 import { LanguageFilter } from '@/components/LanguageFilter';
 import { ProjectCard } from '@/components/ProjectCard';
