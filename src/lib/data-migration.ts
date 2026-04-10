@@ -289,6 +289,16 @@ export function runFullMigration() {
   const startTime = Date.now();
 
   try {
+    // 步骤0：先执行数据库结构迁移（创建表）
+    console.log('步骤0：执行数据库结构迁移...');
+    const { runMigrations } = require('./db-migration');
+    const migrationResults = runMigrations();
+
+    if (migrationResults.some((result: { success: boolean }) => !result.success)) {
+      throw new Error('数据库结构迁移失败');
+    }
+    console.log('✓ 数据库结构迁移完成\n');
+
     // 步骤1：初始化标签
     seedSemanticTags();
     console.log('');

@@ -315,14 +315,6 @@ export function initDatabase() {
   `);
 
   console.log('Database initialized.');
-
-  // 执行数据库迁移（如果需要）
-  try {
-    const { runMigrations } = require('./db-migration');
-    runMigrations();
-  } catch (error) {
-    console.warn('数据库迁移模块未加载或执行失败:', error);
-  }
 }
 
 export default db;
