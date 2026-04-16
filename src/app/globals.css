@@ -166,11 +166,26 @@ input {
 }
 
 .card-hover {
-  transition: transform 220ms ease, background-color 220ms ease, border-color 220ms ease;
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
 
 .card-hover:hover {
   transform: translateY(-2px);
+  border-color: color-mix(in srgb, #f97316 26%, var(--border));
+  box-shadow: 0 18px 40px -12px rgba(249, 115, 22, 0.18);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 20px 42px -14px rgba(251, 146, 60, 0.26);
+}
+
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-radius: inherit;
 }
 
 .hero-code-item {

@@ -63,15 +63,6 @@ export default async function LanguageCollectionPage({
     },
     {
       '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: '编程语言', item: `${SITE_URL}/languages` },
-        { '@type': 'ListItem', position: 3, name: title, item: `${SITE_URL}/languages/${result.bucket.slug}` },
-      ],
-    },
-    {
-      '@context': 'https://schema.org',
       '@type': 'ItemList',
       itemListElement: result.projects.slice(0, 20).map((project, index) => ({
         '@type': 'ListItem',
@@ -90,6 +81,13 @@ export default async function LanguageCollectionPage({
       projects={result.projects}
       canonicalPath={`/languages/${result.bucket.slug}`}
       jsonLd={jsonLd}
+      kind="编程语言"
+      parentHref="/languages"
+      parentLabel="全部语言"
+      breadcrumbs={[
+        { label: '编程语言', href: '/languages' },
+        { label: result.bucket.name },
+      ]}
       relatedLinks={[
         { href: '/languages', label: '全部编程语言' },
         { href: '/topics', label: '全部技术标签' },

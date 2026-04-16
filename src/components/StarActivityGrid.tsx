@@ -26,10 +26,8 @@ function getLevel(count: number, maxCount: number) {
 }
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(`${date}T00:00:00`));
+  const [, month, day] = date.split('-');
+  return `${parseInt(month, 10)}月${parseInt(day, 10)}日`;
 }
 
 export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGridProps) {

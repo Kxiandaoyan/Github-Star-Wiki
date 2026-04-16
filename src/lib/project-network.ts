@@ -7,6 +7,7 @@ import { parseTopics } from './taxonomy';
 import {
   deriveProjectSemanticProfile,
   getSemanticClusterLookup,
+  resolveClusterId,
   SEMANTIC_CLUSTER_DEFINITIONS,
   type ProjectSemanticProfile,
 } from './semantic-profile';
@@ -187,8 +188,8 @@ export function buildProjectGraph(limit = 1600): ProjectGraphData {
       oneLineIntro: row.one_line_intro,
       stars: row.stars,
       projectType: row.project_type,
-      cluster: semanticProfile.primaryCluster,
-      semanticTags: semanticProfile.semanticTags,
+      cluster: resolveClusterId(semanticProfile.primaryCluster),
+      semanticTags: semanticProfile.semanticTags.map((tag) => resolveClusterId(tag)),
       semanticKeywords: semanticProfile.keywords,
       useCases: semanticProfile.useCases,
       capabilities: semanticProfile.capabilities,

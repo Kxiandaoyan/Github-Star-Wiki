@@ -167,22 +167,26 @@ async function getRepositoryMetadata(fullName: string): Promise<GitHubRepo> {
 }
 
 export async function fetchGitHubProfile() {
-  const { username: githubUsername, token: githubToken } = getGitHubConfig();
-  const fallbackLogin = githubUsername || null;
+  const { getCachedAsync } = await import('./cache');
 
-  if (!githubToken && !githubUsername) {
-    return null;
-  }
+  return getCachedAsync<GitHubUserProfile | null>('github:profile', 5 * 60 * 1000, async () => {
+    const { username: githubUsername, token: githubToken } = getGitHubConfig();
+    const fallbackLogin = githubUsername || null;
 
-  try {
-    const githubApi = createGithubApi();
-    const endpoint = githubToken ? '/user' : `/users/${githubUsername}`;
-    const response = await githubApi.get<GitHubUserProfile>(endpoint);
-    return response.data;
-  } catch (error) {
-    console.error(getGitHubErrorMessage(error, `Failed to load GitHub profile for ${fallbackLogin || 'user'}`));
-    return null;
-  }
+    if (!githubToken && !githubUsername) {
+      return null;
+    }
+
+    try {
+      const githubApi = createGithubApi();
+      const endpoint = githubToken ? '/user' : `/users/${githubUsername}`;
+      const response = await githubApi.get<GitHubUserProfile>(endpoint);
+      return response.data;
+    } catch (error) {
+      console.error(getGitHubErrorMessage(error, `Failed to load GitHub profile for ${fallbackLogin || 'user'}`));
+      return null;
+    }
+  });
 }
 
 async function getReadmeContent(fullName: string, ref?: string): Promise<string> {

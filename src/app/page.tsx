@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import Script from 'next/script';
 import type { Metadata } from 'next';
 import {
   ArrowRight,
   ExternalLink,
   Heart,
+  Rss,
   SearchCode,
   Sparkles,
   Star,
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { fetchGitHubProfile, getLanguages, getProjects } from '@/lib/github';
 import { getLanguageBuckets, getTopicBuckets } from '@/lib/taxonomy';
+import { getCached } from '@/lib/cache';
 import db from '@/lib/db';
 import { searchProjects } from '@/lib/project-search';
 
@@ -201,15 +202,54 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     fetchGitHubProfile(),
   ]);
 
-  const [projectCount, wikiCount, recordedStarCount, activity] = [
-    (db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-    (db.prepare("SELECT COUNT(*) as count FROM projects WHERE wiki_status = 'completed'").get() as { count: number }).count,
-    (db.prepare('SELECT COUNT(*) as count FROM projects WHERE starred_at IS NOT NULL').get() as { count: number }).count,
-    getStarActivity(),
-  ];
+  const stats = getCached('home:stats', 30_000, () => {
+    const row = db.prepare(`
+      SELECT
+        COUNT(*) as project_count,
+        SUM(CASE WHEN wiki_status = 'completed' THEN 1 ELSE 0 END) as wiki_count,
+        SUM(CASE WHEN starred_at IS NOT NULL THEN 1 ELSE 0 END) as star_count
+      FROM projects
+    `).get() as { project_count: number; wiki_count: number; star_count: number };
+    return row;
+  });
+  const projectCount = stats.project_count;
+  const wikiCount = stats.wiki_count;
+  const recordedStarCount = stats.star_count;
+  const activity = getCached('home:activity', 60_000, () => getStarActivity());
 
-  const featuredLanguageBuckets = getLanguageBuckets(24);
-  const featuredTopicBuckets = getTopicBuckets(36);
+  const featuredLanguageBuckets = getCached('home:lang-buckets', 60_000, () => getLanguageBuckets(24));
+  const featuredTopicBuckets = getCached('home:topic-buckets', 60_000, () => getTopicBuckets(36));
+
+  const forgottenProjects = !query && page === 1
+    ? getCached('home:forgotten', 10 * 60_000, () =>
+        db.prepare(`
+          SELECT
+            p.id,
+            p.full_name,
+            p.description,
+            p.one_line_intro,
+            p.stars,
+            p.language,
+            p.one_line_status,
+            p.updated_at
+          FROM projects p
+          WHERE p.one_line_status = 'completed'
+            AND p.starred_at IS NOT NULL
+            AND julianday('now') - julianday(p.starred_at) >= 180
+          ORDER BY RANDOM()
+          LIMIT 6
+        `).all() as Array<{
+          id: number;
+          full_name: string;
+          description: string | null;
+          one_line_intro: string | null;
+          stars: number;
+          language: string | null;
+          one_line_status: string;
+          updated_at: string | null;
+        }>
+      )
+    : [];
 
   const websiteJsonLd = {
     '@context': 'https://schema.org',
@@ -239,13 +279,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <div className="min-h-screen">
-      <Script
-        id="website-jsonld"
+      <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
-      <Script
-        id="home-itemlist-jsonld"
+      <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeItemListJsonLd) }}
       />
@@ -381,6 +419,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </section>
 
         <StarActivityGrid cells={activity} recordedCount={recordedStarCount} weeks={ACTIVITY_WEEKS} />
+
+        {forgottenProjects.length > 0 ? (
+          <section className="space-y-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">随机捡回</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                  你可能忘了收藏过的项目
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  从半年前 Star 过但可能早忘掉的项目里随机挑 6 个回看一下。每 10 分钟换一批。
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {forgottenProjects.map((project) => (
+                <ProjectCard key={project.id} {...project} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="space-y-4">
           <div className="space-y-3">
@@ -545,10 +604,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           为 GitHub Star 检索而做
           <Heart className="h-4 w-4 fill-red-500 text-red-500" />
         </div>
-        <span className="inline-flex items-center gap-2">
-          搜索、简介与 Wiki 导览
-          <ArrowRight className="h-4 w-4" />
-        </span>
+        <div className="flex items-center gap-4">
+          <a
+            href="/feed.xml"
+            className="inline-flex items-center gap-2 hover:text-foreground"
+            aria-label="RSS 订阅"
+          >
+            <Rss className="h-4 w-4" />
+            RSS
+          </a>
+          <span className="inline-flex items-center gap-2">
+            搜索、简介与 Wiki 导览
+            <ArrowRight className="h-4 w-4" />
+          </span>
+        </div>
       </footer>
     </div>
   );

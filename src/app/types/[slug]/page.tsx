@@ -80,6 +80,13 @@ export default async function ProjectTypeCollectionPage({
       projects={result.projects}
       canonicalPath={result.bucket.href}
       jsonLd={jsonLd}
+      kind="项目类型"
+      parentHref="/types"
+      parentLabel="全部类型"
+      breadcrumbs={[
+        { label: '项目类型', href: '/types' },
+        { label: result.bucket.name },
+      ]}
       relatedLinks={[
         { href: '/types', label: '全部项目类型' },
         { href: '/use-cases', label: '全部使用场景' },

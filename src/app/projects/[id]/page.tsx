@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Script from 'next/script';
 import type { ComponentType } from 'react';
 import {
-  ArrowLeft,
   BookOpen,
   BrainCircuit,
   CalendarDays,
@@ -28,7 +26,8 @@ import {
   parseTopics,
   slugifyTaxonomyValue,
 } from '@/lib/taxonomy';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { SiteFooter } from '@/components/SiteFooter';
+import { SiteHeader } from '@/components/SiteHeader';
 import { cn } from '@/lib/utils';
 
 interface WikiDocument {
@@ -81,11 +80,8 @@ function formatDate(date: string | null | undefined) {
     return null;
   }
 
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(date));
+  const d = new Date(date);
+  return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
 }
 
 function parseMindMap(rawMindMap: string | null): MindMapNode | null {
@@ -224,6 +220,25 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const faqItems = parseFaqItems(project.faq_json);
   const projectTopics = parseTopics(project.topics);
   const relatedProjects = getRelatedProjects(project.id, 6);
+  const sameDayProjects = project.starred_at
+    ? (db.prepare(`
+        SELECT id, full_name, one_line_intro, description, stars, language, starred_at
+        FROM projects
+        WHERE id != ?
+          AND starred_at IS NOT NULL
+          AND DATE(starred_at) = DATE(?)
+        ORDER BY stars DESC
+        LIMIT 5
+      `).all(project.id, project.starred_at) as Array<{
+        id: number;
+        full_name: string;
+        one_line_intro: string | null;
+        description: string | null;
+        stars: number;
+        language: string | null;
+        starred_at: string;
+      }>)
+    : [];
   const matchingSpecialCollections = getMatchingSpecialCollectionsForProject(project.id).slice(0, 3);
   const matchingUseCases = getMatchingUseCasesForProject(project.id).slice(0, 3);
   const projectTypeLink = getProjectTypeLinkForProject(project.id);
@@ -259,46 +274,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       })),
     }
     : null;
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: '首页',
-        item: SITE_URL,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: '项目',
-        item: `${SITE_URL}/`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: project.full_name,
-        item: `${SITE_URL}/projects/${project.id}`,
-      },
-    ],
-  };
-
   return (
-    <div className="min-h-screen">
-      <Script
-        id={`project-jsonld-${project.id}`}
+    <div id="top" className="min-h-screen">
+      <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(projectJsonLd) }}
       />
-      <Script
-        id={`project-breadcrumb-jsonld-${project.id}`}
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
       {faqJsonLd ? (
-        <Script
-          id={`project-faq-jsonld-${project.id}`}
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
@@ -310,18 +293,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         <div className="absolute bottom-8 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-blue-500/8 blur-3xl dark:bg-blue-400/8" />
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
-          <Link
-            href="/"
-            className="surface-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回项目列表
-          </Link>
-          <ThemeToggle />
-        </div>
-      </header>
+      <SiteHeader
+        breadcrumbs={[{ label: project.name }]}
+        backHref="/"
+        backLabel="返回列表"
+      />
 
       <main className="mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
         <section className="surface-panel rounded-[2rem] p-7 md:p-9">
@@ -673,9 +649,38 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 </div>
               </section>
             ) : null}
+
+            {sameDayProjects.length > 0 ? (
+              <section className="surface-panel rounded-[1.8rem] p-6">
+                <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  同一天 Star 过
+                </div>
+                <p className="mb-3 text-xs leading-5 text-muted-foreground">
+                  你在 {formatDate(project.starred_at)} 还收藏了这些项目，很可能是顺着同一条线索挖的：
+                </p>
+                <div className="space-y-2">
+                  {sameDayProjects.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/projects/${item.id}`}
+                      className="surface-chip block rounded-2xl px-4 py-3"
+                    >
+                      <p className="truncate text-sm font-medium text-foreground">{item.full_name}</p>
+                      {item.one_line_intro || item.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                          {item.one_line_intro || item.description}
+                        </p>
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </aside>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

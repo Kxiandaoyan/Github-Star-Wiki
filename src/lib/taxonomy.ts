@@ -1,8 +1,10 @@
-﻿import db from './db';
+import { getCached } from './cache';
+import db from './db';
 import type { RepositoryAnalysisResult, RepositoryDeepReadResult } from './project-analysis';
 import {
   deriveProjectSemanticProfile,
   getSemanticClusterLookup,
+  resolveClusterId,
   SEMANTIC_CLUSTER_DEFINITIONS,
   type ProjectSemanticProfile,
 } from './semantic-profile';
@@ -15,6 +17,7 @@ export interface ProjectListItem {
   stars: number;
   language: string | null;
   one_line_status: string;
+  updated_at?: string | null;
   topics?: string | null;
   project_type?: string | null;
 }
@@ -174,207 +177,306 @@ function buildSignals(project: SpecialCollectionProjectRow): ProjectSignals {
   };
 }
 
-const specialCollectionDefinitions: SpecialCollectionDefinition[] = [
-  {
-    slug: 'ai-agents',
-    name: 'AI Agent',
-    title: '最佳 AI Agent 开源项目',
-    description: '自动聚合站内与 AI Agent、智能助手、多代理协作、MCP 相关的开源项目，适合快速发现值得继续深挖的 Agent 基础设施、工具链与应用。',
-    faq: [
-      {
-        question: '这个专题页会收录哪些项目？',
-        answer: '优先收录与 AI Agent、assistant、multi-agent、MCP、agent workflow 等主题强相关的项目。',
-      },
-      {
-        question: '适合用它做什么？',
-        answer: '适合快速筛选你过去 Star 过的 Agent 项目，判断哪些更值得继续看实现、部署方式和使用场景。',
-      },
-    ],
-    matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'agent',
-      'agents',
-      'ai-agent',
-      'ai-agents',
-      'aiagents',
-      'assistant',
-      'multi-agent',
-      'agentic',
-      'mcp',
-      'mcp-server',
-    ]) || includesAny(signals.text, [
-      'ai agent',
-      'ai agents',
-      'agent workflow',
-      'agentic workflow',
-      'assistant',
-      'mcp server',
-    ]),
-  },
-  {
-    slug: 'nextjs-projects',
-    name: 'Next.js',
-    title: '值得关注的 Next.js 开源项目',
-    description: '自动聚合站内使用 Next.js 构建的开源项目，适合从 UI、SaaS、后台、模板和 AI 应用几个方向快速浏览你过去收藏过的 Next.js 实战项目。',
-    faq: [
-      {
-        question: '为什么单独做 Next.js 专题？',
-        answer: 'Next.js 项目通常同时具备产品形态、页面结构和工程实现价值，适合做持续流量入口与站内内链枢纽。',
-      },
-      {
-        question: '专题页里的项目怎么筛选？',
-        answer: '主要依据仓库 topics、README/描述中的 Next.js 关键词，以及明确的框架特征进行聚合。',
-      },
-    ],
-    matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'nextjs',
-      'next.js',
-      'nextjs-template',
-      'nextjs15',
-    ]) || includesAny(signals.text, ['next.js', 'nextjs']),
-  },
-  {
-    slug: 'automation-tools',
-    name: '自动化工具',
-    title: 'GitHub 上热门的自动化工具',
-    description: '自动聚合与 automation、workflow、orchestration、browser automation 等主题相关的项目，帮助用户按“自动化能力”而不是单个技术名词重新发现项目。',
-    faq: [
-      {
-        question: '这个专题页和 AI Agent 专题有什么区别？',
-        answer: 'AI Agent 更偏智能体能力，自动化工具页更偏自动执行、编排和工作流效率。两者会有部分交集，但关注点不同。',
-      },
-      {
-        question: '为什么这类页面适合做 SEO？',
-        answer: '自动化工具是稳定且高频的搜索意图，专题页天然适合承接工具盘点和项目集合类关键词。',
-      },
-    ],
-    matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'automation',
-      'workflow',
-      'workflow-automation',
-      'browser-automation',
-      'agent-workflow',
-      'agentic-workflow',
-      'security-automation',
-    ]) || includesAny(signals.text, [
-      'automation',
-      'workflow',
-      'automate',
-      'orchestrate',
-      'orchestration',
-    ]),
-  },
-  {
-    slug: 'indie-dev-toolkit',
-    name: '独立开发者',
-    title: '适合独立开发者的开源项目',
-    description: '自动聚合模板、starter、boilerplate、dashboard、developer tools 与 productivity 相关项目，更适合作为独立开发者搭建产品、提效和选型时的工具箱入口。',
-    faq: [
-      {
-        question: '为什么把这类项目单独聚合？',
-        answer: '独立开发者更需要低成本起步、快速验证与高复用工具，这类项目适合按实用价值重新组织。',
-      },
-      {
-        question: '这里会包含哪些类型？',
-        answer: '会包含模板、后台、效率工具、开发者工具以及适合快速搭建产品的开源项目。',
-      },
-    ],
-    matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'boilerplate',
-      'starter',
-      'starter-template',
-      'template',
-      'developer-tools',
-      'devtools',
-      'productivity',
-      'dashboard',
-      'admin-dashboard',
-      'saas',
-    ]) || includesAny(signals.text, [
-      'boilerplate',
-      'starter',
-      'template',
-      'developer tools',
-      'productivity',
-      'dashboard',
-      'open-source alternative',
-      'ship faster',
-    ]),
-  },
-];
-
 const useCaseDefinitions: SpecialCollectionDefinition[] = [
+  // AI 相关
   {
-    slug: 'agent-workflows',
-    name: 'Agent 工作流',
-    title: '适合 Agent 工作流的开源项目',
-    description: '自动聚合可用于 AI Agent、任务编排、多代理协作与上下文管理的项目，适合作为智能工作流工具清单。',
+    slug: 'ai-agent-development',
+    name: 'AI Agent 开发',
+    title: '适合 AI Agent 开发的开源项目',
+    description: '用于构建智能体、多代理系统、MCP 服务器、Claude Code / Codex / Cursor 扩展、自主任务执行的工具和框架。',
     faq: [
       {
-        question: '这类用例页和专题页有何区别？',
-        answer: '专题页更强调一个热门主题，用例页更强调项目最终解决的具体任务场景。',
+        question: '这里会包含哪些项目？',
+        answer: '涵盖 AI Agent 框架、MCP 服务器、Agent 开发脚手架、Claude Code/Codex 插件等。',
       },
     ],
     matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'agent',
-      'agents',
-      'ai-agent',
-      'mcp',
-      'workflow',
-      'multi-agent',
-    ]) || includesAny(signals.text, ['agent', 'mcp', 'workflow orchestration']),
+      'agent', 'agents', 'ai-agent', 'ai-agents', 'mcp', 'mcp-server', 'multi-agent', 'agentic', 'claude-code', 'codex',
+    ]) || includesAny(signals.text, ['ai agent', 'mcp server', 'multi-agent', 'claude code', 'codex', 'agent framework']),
   },
   {
-    slug: 'automation',
-    name: '自动化',
-    title: '适合自动化场景的开源项目',
-    description: '自动聚合 workflow、automation、orchestration、browser automation 等相关项目，适合从工作流自动化角度整理 Star 列表。',
+    slug: 'chatbot-building',
+    name: '聊天机器人',
+    title: '适合构建聊天机器人的开源项目',
+    description: '用于开发对话系统、客服机器人、AI 助手的框架和工具，涵盖 OpenAI、Claude、Gemini、DeepSeek 等模型接入。',
     faq: [
       {
-        question: '这页更适合谁？',
-        answer: '适合需要提效、编排任务、减少重复劳动的个人开发者和工具使用者。',
+        question: '和 AI Agent 有什么区别？',
+        answer: 'Agent 强调自主决策与工具调用，聊天机器人更偏对话交互本身。',
       },
     ],
     matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'automation',
-      'workflow',
-      'orchestration',
-      'workflow-automation',
-      'browser-automation',
-    ]) || includesAny(signals.text, ['automation', 'workflow', 'automate']),
+      'chatbot', 'chat', 'conversation', 'assistant', 'telegram-bot', 'discord-bot', 'wechat',
+    ]) || includesAny(signals.text, ['chatbot', 'chat bot', 'conversation', 'dialogue system']),
   },
   {
-    slug: 'ui-building',
-    name: 'UI 构建',
-    title: '适合 UI 与前端构建的开源项目',
-    description: '自动聚合 UI 组件、设计系统、shadcn、React 组件库和界面工具，适合作为前端搭建类项目入口。',
+    slug: 'rag-implementation',
+    name: 'RAG 实现',
+    title: '适合实现 RAG 的开源项目',
+    description: '用于构建检索增强生成系统、向量检索、知识库问答、文档智能的工具和框架。',
+    faq: [
+      {
+        question: 'RAG 项目通常包含什么？',
+        answer: '典型能力包括文档分块、embedding、向量存储、语义检索、上下文组装与回答生成。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'rag', 'retrieval', 'vector', 'vector-search', 'embedding', 'semantic-search', 'knowledge-base',
+    ]) || includesAny(signals.text, ['rag', 'retrieval augmented', 'vector database', 'semantic search']),
+  },
+  {
+    slug: 'model-training',
+    name: '模型训练',
+    title: '适合模型训练的开源项目',
+    description: '用于机器学习训练、模型微调、数据集处理、推理加速的工具和框架。',
+    faq: [
+      {
+        question: '新手适合从哪里开始？',
+        answer: '先看高 star 的训练框架，再结合数据集和微调脚本逐步深入。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'training', 'fine-tuning', 'dataset', 'machine-learning', 'deep-learning', 'pytorch', 'tensorflow',
+    ]) || includesAny(signals.text, ['fine-tuning', 'model training', 'machine learning', 'pytorch', 'tensorflow']),
+  },
+
+  // 自动化
+  {
+    slug: 'workflow-automation',
+    name: '工作流自动化',
+    title: '适合工作流自动化的开源项目',
+    description: '用于任务编排、流程自动化、定时任务、RPA、可视化工作流构建的工具。',
+    faq: [
+      {
+        question: '适合什么人？',
+        answer: '适合想减少重复劳动、串联工具、做数据或流程自动化的开发者和运营。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'automation', 'workflow', 'workflow-automation', 'orchestration', 'rpa', 'agentic-workflow',
+    ]) || includesAny(signals.text, ['workflow automation', 'task automation', 'orchestration']),
+  },
+  {
+    slug: 'web-scraping',
+    name: '网页数据采集',
+    title: '适合网页数据采集的开源项目',
+    description: '用于爬虫开发、数据抓取、网页解析、反爬对抗的工具和框架。',
+    faq: [
+      {
+        question: '这些项目合法吗？',
+        answer: '技术本身中立，使用时请遵守目标站点的 robots.txt、服务条款和当地法律。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'scraper', 'crawler', 'scraping', 'web-scraping', 'spider', 'data-extraction',
+    ]) || includesAny(signals.text, ['web scraping', 'scraper', 'crawler', 'data extraction']),
+  },
+  {
+    slug: 'browser-testing',
+    name: '浏览器测试',
+    title: '适合浏览器自动化测试的开源项目',
+    description: '用于 E2E 测试、UI 测试、浏览器自动化的工具，涵盖 Puppeteer、Playwright、Selenium。',
+    faq: [
+      {
+        question: '选 Puppeteer 还是 Playwright？',
+        answer: 'Playwright 跨浏览器支持更好，Puppeteer 更偏 Chrome 生态；看目标浏览器和 API 偏好。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'puppeteer', 'playwright', 'selenium', 'browser-automation', 'e2e', 'testing',
+    ]) || includesAny(signals.text, ['puppeteer', 'playwright', 'selenium', 'e2e testing', 'browser test']),
+  },
+
+  // 前端
+  {
+    slug: 'ui-development',
+    name: 'UI 开发',
+    title: '适合 UI 开发的开源项目',
+    description: '用于构建用户界面、组件库、设计系统、shadcn 扩展和界面生成工具。',
     faq: [
       {
         question: '会包含哪些项目？',
-        answer: '主要是 UI 组件库、设计系统、界面生成工具以及与前端搭建强相关的仓库。',
+        answer: '组件库（shadcn/Radix/MUI）、设计系统、Tailwind 插件、UI Kit 等。',
       },
     ],
     matches: (_, signals) => signals.projectType === 'ui'
-      || hasAnyTopic(signals.topics, ['ui', 'component', 'components', 'design-system', 'shadcn'])
-      || includesAny(signals.text, ['component library', 'ui component', 'design system']),
+      || hasAnyTopic(signals.topics, ['ui', 'component', 'components', 'design-system', 'shadcn', 'tailwind', 'radix-ui'])
+      || includesAny(signals.text, ['component library', 'design system', 'ui components', 'shadcn']),
   },
   {
-    slug: 'developer-productivity',
-    name: '开发提效',
-    title: '适合开发提效的开源项目',
-    description: '自动聚合 developer tools、productivity、terminal、context management 等工具，适合从效率视角回看过去收藏的项目。',
+    slug: 'frontend-building',
+    name: '前端应用搭建',
+    title: '适合前端应用搭建的开源项目',
+    description: '用于快速搭建前端应用、SPA、SSR 应用的框架、模板和脚手架。',
     faq: [
       {
-        question: '为什么适合 SEO？',
-        answer: '开发提效是长期稳定的搜索需求，也非常适合做站内推荐与回访入口。',
+        question: '推荐的起步路径？',
+        answer: 'Next.js/Nuxt 适合全栈，Vite + React/Vue 适合纯 SPA，按需求选模板。',
       },
     ],
     matches: (_, signals) => hasAnyTopic(signals.topics, [
-      'developer-tools',
-      'devtools',
-      'productivity',
-      'terminal',
-      'context-management',
-    ]) || includesAny(signals.text, ['developer tools', 'productivity', 'terminal']),
+      'react', 'vue', 'nextjs', 'next-js', 'nuxt', 'svelte', 'frontend', 'vite',
+    ]) || includesAny(signals.text, ['next.js', 'nextjs', 'nuxt', 'react app', 'vue app', 'svelte']),
+  },
+  {
+    slug: 'animation-effects',
+    name: '动画与特效',
+    title: '适合实现动画特效的开源项目',
+    description: '用于创建动画、过渡效果、交互体验的库和工具（Framer Motion、GSAP、Lottie 等）。',
+    faq: [
+      {
+        question: '这类库的主要取舍？',
+        answer: '看你要的是声明式 API、高性能物理引擎，还是复杂的关键帧动画。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'animation', 'motion', 'transition', 'framer-motion', 'gsap', 'lottie',
+    ]) || includesAny(signals.text, ['animation library', 'motion', 'transition', 'framer motion']),
+  },
+
+  // 后端
+  {
+    slug: 'api-development',
+    name: 'API 开发',
+    title: '适合 API 开发的开源项目',
+    description: '用于构建 REST API、GraphQL API、微服务的框架和工具（Express、FastAPI、Nest、tRPC 等）。',
+    faq: [
+      {
+        question: '如何选型？',
+        answer: '小项目用 Express/FastAPI，复杂业务用 Nest/Spring，类型安全选 tRPC。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'api', 'rest', 'graphql', 'backend', 'express', 'fastapi', 'nestjs', 'trpc',
+    ]) || includesAny(signals.text, ['rest api', 'graphql', 'backend framework', 'microservices']),
+  },
+  {
+    slug: 'database-management',
+    name: '数据库管理',
+    title: '适合数据库管理的开源项目',
+    description: '用于数据库操作、ORM、查询构建、数据迁移的工具和库。',
+    faq: [
+      {
+        question: 'ORM 和原生 SQL 怎么选？',
+        answer: '小团队/原型用 ORM 省事，复杂报表/大数据场景偏原生 SQL 或查询构建器。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'database', 'orm', 'sql', 'postgres', 'mysql', 'redis', 'sqlite', 'mongodb', 'prisma',
+    ]) || includesAny(signals.text, ['database', 'orm', 'query builder', 'prisma', 'typeorm']),
+  },
+  {
+    slug: 'authentication-setup',
+    name: '认证授权',
+    title: '适合实现认证授权的开源项目',
+    description: '用于用户认证、权限管理、SSO、OAuth 的开源解决方案。',
+    faq: [
+      {
+        question: '这类项目适合自己搭吗？',
+        answer: '简单场景建议用托管服务，独立部署/合规要求高的场景可以自托管开源方案。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'auth', 'authentication', 'authorization', 'sso', 'oauth', 'jwt', 'oidc',
+    ]) || includesAny(signals.text, ['authentication', 'oauth', 'sso', 'jwt', 'identity provider']),
+  },
+
+  // DevOps
+  {
+    slug: 'deployment',
+    name: '应用部署',
+    title: '适合应用部署的开源项目',
+    description: '用于应用部署、容器化、云原生部署的工具和平台（Docker、Kubernetes、PaaS 自托管等）。',
+    faq: [
+      {
+        question: '小项目有必要上 K8s 吗？',
+        answer: '多数小项目用 Docker Compose 或 PaaS 即可；有多环境和规模化需求再考虑 K8s。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'docker', 'kubernetes', 'k8s', 'deployment', 'cloud', 'self-hosted', 'paas',
+    ]) || includesAny(signals.text, ['docker', 'kubernetes', 'deployment', 'self-hosted']),
+  },
+  {
+    slug: 'cicd-pipeline',
+    name: 'CI/CD 流水线',
+    title: '适合构建 CI/CD 流水线的开源项目',
+    description: '用于持续集成、持续部署、自动化测试与发布的工具。',
+    faq: [
+      {
+        question: '应该从哪里入手？',
+        answer: '先用 GitHub Actions 把 lint/test/build 打通，再逐步加上自动化部署与灰度发布。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'ci', 'cd', 'cicd', 'ci-cd', 'github-actions', 'gitlab-ci', 'pipeline',
+    ]) || includesAny(signals.text, ['ci/cd', 'github actions', 'gitlab ci', 'continuous integration']),
+  },
+  {
+    slug: 'system-monitoring',
+    name: '系统监控',
+    title: '适合系统监控的开源项目',
+    description: '用于监控、日志、告警、APM、可观测性的工具和平台。',
+    faq: [
+      {
+        question: '监控和日志有什么区别？',
+        answer: '监控看整体指标与告警，日志看细节事件，APM 关联请求链路。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'monitoring', 'observability', 'logging', 'metrics', 'tracing', 'prometheus', 'grafana',
+    ]) || includesAny(signals.text, ['monitoring', 'observability', 'logging', 'apm', 'prometheus']),
+  },
+
+  // 开发提效
+  {
+    slug: 'developer-productivity',
+    name: '开发提效',
+    title: '适合提升开发效率的开源项目',
+    description: '用于提升开发效率、代码质量、团队协作的工具（CLI、Linter、Formatter、脚手架、编辑器扩展）。',
+    faq: [
+      {
+        question: '哪些值得直接装？',
+        answer: '高 star 的 Linter/Formatter、通用脚手架、热门终端工具通常通用性最好。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'developer-tools', 'devtools', 'productivity', 'cli', 'terminal', 'linter', 'formatter', 'vscode-extension',
+    ]) || includesAny(signals.text, ['developer tools', 'productivity', 'cli tool', 'terminal']),
+  },
+
+  // 安全
+  {
+    slug: 'security-tooling',
+    name: '安全与红队',
+    title: '适合安全与红队研究的开源项目',
+    description: '渗透测试、漏洞研究、rootkit、反向 shell、反检测、C2 框架与安全自动化工具。',
+    faq: [
+      {
+        question: '合法使用的前提？',
+        answer: '仅在授权范围内使用，遵守法律法规与负责任披露流程。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'security', 'pentest', 'pentesting', 'red-team', 'rootkit', 'reverse-shell', 'c2', 'exploit',
+    ]) || includesAny(signals.text, ['pentest', 'red team', 'rootkit', 'reverse shell', 'c2 framework']),
+  },
+
+  // 内容
+  {
+    slug: 'content-management',
+    name: '内容管理',
+    title: '适合内容管理的开源项目',
+    description: '用于内容管理、博客搭建、文档站的 CMS 和工具（Strapi、Ghost、静态站生成器）。',
+    faq: [
+      {
+        question: '选 Headless 还是传统 CMS？',
+        answer: '需要前端独立部署/多端分发选 Headless，开箱即用选传统 CMS。',
+      },
+    ],
+    matches: (_, signals) => hasAnyTopic(signals.topics, [
+      'cms', 'content-management', 'blog', 'docs', 'documentation', 'static-site-generator',
+    ]) || includesAny(signals.text, ['cms', 'headless cms', 'blog engine', 'static site generator']),
   },
 ];
 
@@ -436,47 +538,53 @@ export function getLanguageBuckets(limit = 12): TaxonomyBucket[] {
 }
 
 export function getTopicBuckets(limit = 18): TaxonomyBucket[] {
-  const rows = db.prepare('SELECT topics FROM projects WHERE topics IS NOT NULL AND topics != ?').all('[]') as RawTopicRow[];
-  const topicCount = new Map<string, number>();
+  const all = getCached('taxonomy:topic-buckets-all', 60_000, () => {
+    const rows = db.prepare('SELECT topics FROM projects WHERE topics IS NOT NULL AND topics != ?').all('[]') as RawTopicRow[];
+    const topicCount = new Map<string, number>();
 
-  rows.forEach((row) => {
-    parseTopics(row.topics).forEach((topic) => {
-      topicCount.set(topic, (topicCount.get(topic) || 0) + 1);
+    rows.forEach((row) => {
+      parseTopics(row.topics).forEach((topic) => {
+        topicCount.set(topic, (topicCount.get(topic) || 0) + 1);
+      });
     });
+
+    return [...topicCount.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .map(([name, count]) => ({
+        name,
+        slug: slugifyTaxonomyValue(name),
+        count,
+      }));
   });
 
-  return [...topicCount.entries()]
-    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-    .slice(0, limit)
-    .map(([name, count]) => ({
-      name,
-      slug: slugifyTaxonomyValue(name),
-      count,
-    }));
+  return all.slice(0, limit);
 }
 
 function getProjectsBase() {
-  return db.prepare(`
-    SELECT
-      p.id,
-      p.full_name,
-      p.description,
-      p.one_line_intro,
-      p.stars,
-      p.language,
-      p.one_line_status,
-      p.topics,
-      p.project_type,
-      pa.semantic_data,
-      pa.analysis_data,
-      pa.deep_read_data
-    FROM projects p
-    LEFT JOIN project_analysis pa ON pa.project_id = p.id
-    WHERE p.one_line_status = 'completed'
-      AND p.intro_status = 'completed'
-      AND p.wiki_status = 'completed'
-    ORDER BY p.stars DESC, p.synced_at DESC
-  `).all() as SpecialCollectionProjectRow[];
+  return getCached('taxonomy:projects-base', 60_000, () =>
+    db.prepare(`
+      SELECT
+        p.id,
+        p.full_name,
+        p.description,
+        p.one_line_intro,
+        p.stars,
+        p.language,
+        p.one_line_status,
+        p.topics,
+        p.project_type,
+        p.updated_at,
+        pa.semantic_data,
+        pa.analysis_data,
+        pa.deep_read_data
+      FROM projects p
+      LEFT JOIN project_analysis pa ON pa.project_id = p.id
+      WHERE p.one_line_status = 'completed'
+        AND p.intro_status = 'completed'
+        AND p.wiki_status = 'completed'
+      ORDER BY p.stars DESC, p.synced_at DESC
+    `).all() as SpecialCollectionProjectRow[]
+  );
 }
 
 function getSemanticProfileFromProject(project: SpecialCollectionProjectRow) {
@@ -502,6 +610,7 @@ function toProjectListItem(project: SpecialCollectionProjectRow): ProjectListIte
     language: project.language,
     one_line_status: project.one_line_status,
     project_type: project.project_type,
+    updated_at: project.updated_at,
   };
 }
 
@@ -545,9 +654,6 @@ function getUseCaseBucketsFromDefinitions() {
   );
 }
 
-void specialCollectionDefinitions;
-void useCaseDefinitions;
-void getProjectsForDefinition;
 
 export function getProjectsByLanguageSlug(slug: string) {
   const bucket = getLanguageBuckets(1000).find((item) => item.slug === slug);
@@ -556,7 +662,7 @@ export function getProjectsByLanguageSlug(slug: string) {
   }
 
   const projects = db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type
+    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type, updated_at
     FROM projects
     WHERE language = ?
     ORDER BY stars DESC, synced_at DESC
@@ -575,44 +681,53 @@ export function getProjectsByTopicSlug(slug: string) {
   }
 
   const projects = db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type
+    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, topics, project_type, updated_at
     FROM projects
+    WHERE topics LIKE ?
     ORDER BY stars DESC, synced_at DESC
-  `).all() as Array<ProjectListItem & { topics?: string | null }>;
+  `).all(`%${bucket.name}%`) as Array<ProjectListItem & { topics?: string | null }>;
 
   return {
     bucket,
-    projects: projects.filter((project) =>
-      parseTopics(project.topics).some((topic) => slugifyTaxonomyValue(topic) === slug)
-    ).map((project) => ({
-      id: project.id,
-      full_name: project.full_name,
-      description: project.description,
-      one_line_intro: project.one_line_intro,
-      stars: project.stars,
-      language: project.language,
-      one_line_status: project.one_line_status,
-      project_type: project.project_type,
-    })),
+    projects: projects
+      .filter((project) =>
+        parseTopics(project.topics).some((topic) => slugifyTaxonomyValue(topic) === slug)
+      )
+      .map((project) => ({
+        id: project.id,
+        full_name: project.full_name,
+        description: project.description,
+        one_line_intro: project.one_line_intro,
+        stars: project.stars,
+        language: project.language,
+        one_line_status: project.one_line_status,
+        project_type: project.project_type,
+        updated_at: project.updated_at,
+      })),
   };
 }
 
-export function getSpecialCollectionBuckets(limit = 12): SpecialCollectionBucket[] {
+export function getSpecialCollectionBuckets(limit = 24): SpecialCollectionBucket[] {
   const projects = getProjectsBase();
+  const clusterCounts = new Map<string, number>();
+
+  projects.forEach((project) => {
+    const profile = getSemanticProfileFromProject(project);
+    const resolved = resolveClusterId(profile.primaryCluster);
+    clusterCounts.set(resolved, (clusterCounts.get(resolved) || 0) + 1);
+  });
 
   return SEMANTIC_CLUSTER_DEFINITIONS
-    .map((cluster) => {
-      const count = projects.filter((project) => getSemanticProfileFromProject(project).primaryCluster === cluster.id).length;
-      return {
-        name: cluster.label,
-        slug: cluster.id,
-        count,
-        title: `${cluster.label} 开源项目`,
-        description: cluster.description,
-        href: `/collections/${cluster.id}`,
-      };
-    })
+    .map((cluster) => ({
+      name: cluster.label,
+      slug: cluster.id,
+      count: clusterCounts.get(cluster.id) || 0,
+      title: `${cluster.label} 开源项目`,
+      description: cluster.description,
+      href: `/collections/${cluster.id}`,
+    }))
     .filter((bucket) => bucket.count > 0)
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
     .slice(0, limit);
 }
 
@@ -623,8 +738,9 @@ export function getProjectsBySpecialCollectionSlug(slug: string) {
     return null;
   }
 
+  const resolvedSlug = resolveClusterId(slug);
   const projects = getProjectsBase()
-    .filter((project) => getSemanticProfileFromProject(project).primaryCluster === slug)
+    .filter((project) => resolveClusterId(getSemanticProfileFromProject(project).primaryCluster) === resolvedSlug)
     .map(toProjectListItem);
 
   if (projects.length === 0) {
@@ -675,7 +791,7 @@ export function getProjectsByProjectTypeSlug(slug: string) {
 
   const rawProjectType = bucket.slug;
   const projects = db.prepare(`
-    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type
+    SELECT id, full_name, description, one_line_intro, stars, language, one_line_status, project_type, updated_at
     FROM projects
     WHERE LOWER(project_type) = ?
     ORDER BY stars DESC, synced_at DESC
@@ -738,19 +854,27 @@ export function getMatchingSpecialCollectionsForProject(projectId: number) {
   }
 
   const profile = getSemanticProfileFromProject(project);
-  const cluster = getSemanticClusterLookup().get(profile.primaryCluster);
-  if (!cluster) {
-    return [] as SpecialCollectionBucket[];
-  }
+  const clusterLookup = getSemanticClusterLookup();
+  const candidateIds = Array.from(new Set([
+    resolveClusterId(profile.primaryCluster),
+    ...profile.semanticTags.map((tag) => resolveClusterId(tag)),
+  ]));
 
-  return [{
-      name: cluster.label,
-      slug: cluster.id,
-      count: 0,
-      title: `${cluster.label} 开源项目`,
-      description: cluster.description,
-      href: `/collections/${cluster.id}`,
-    }];
+  return candidateIds
+    .map((id) => {
+      const cluster = clusterLookup.get(id);
+      if (!cluster) return null;
+      return {
+        name: cluster.label,
+        slug: cluster.id,
+        count: 0,
+        title: `${cluster.label} 开源项目`,
+        description: cluster.description,
+        href: `/collections/${cluster.id}`,
+      } satisfies SpecialCollectionBucket;
+    })
+    .filter((item): item is SpecialCollectionBucket => item !== null)
+    .slice(0, 4);
 }
 
 export function getMatchingUseCasesForProject(projectId: number) {
@@ -844,14 +968,41 @@ export function getRelatedProjects(projectId: number, limit = 6) {
   const currentFunctionalIntentTerms = buildFunctionalIntentTerms(currentProfile);
   const currentProblemSignals = extractFunctionalPhrases(currentProfile.problemSolved, 3);
 
-  const projects = db.prepare(`
-    SELECT p.id, p.full_name, p.description, p.one_line_intro, p.stars, p.language, p.one_line_status, p.topics, p.project_type,
-           pa.semantic_data, pa.analysis_data, pa.deep_read_data
-    FROM projects p
-    LEFT JOIN project_analysis pa ON pa.project_id = p.id
-    WHERE p.id != ?
-    ORDER BY p.stars DESC, p.synced_at DESC
-  `).all(projectId) as RelatedProjectRow[];
+  const topicTerms = currentTopics.slice(0, 5).map((t) => `%${t}%`);
+  const clusterTerm = currentProfile.primaryCluster ? `%${currentProfile.primaryCluster}%` : null;
+  const keywordTerms = currentProfile.keywords.slice(0, 3).map((k) => `%${k}%`);
+  const filterTerms = [...topicTerms, ...keywordTerms, ...(clusterTerm ? [clusterTerm] : [])];
+
+  let candidateSql: string;
+  const candidateParams: (string | number)[] = [projectId];
+
+  if (filterTerms.length > 0) {
+    const likeConditions = filterTerms.map(() => '(p.topics LIKE ? OR pa.semantic_data LIKE ?)');
+    candidateSql = `
+      SELECT p.id, p.full_name, p.description, p.one_line_intro, p.stars, p.language, p.one_line_status, p.topics, p.project_type,
+             pa.semantic_data, pa.analysis_data, pa.deep_read_data
+      FROM projects p
+      LEFT JOIN project_analysis pa ON pa.project_id = p.id
+      WHERE p.id != ? AND (${likeConditions.join(' OR ')})
+      ORDER BY p.stars DESC
+      LIMIT 200
+    `;
+    for (const term of filterTerms) {
+      candidateParams.push(term, term);
+    }
+  } else {
+    candidateSql = `
+      SELECT p.id, p.full_name, p.description, p.one_line_intro, p.stars, p.language, p.one_line_status, p.topics, p.project_type,
+             pa.semantic_data, pa.analysis_data, pa.deep_read_data
+      FROM projects p
+      LEFT JOIN project_analysis pa ON pa.project_id = p.id
+      WHERE p.id != ?
+      ORDER BY p.stars DESC
+      LIMIT 200
+    `;
+  }
+
+  const projects = db.prepare(candidateSql).all(...candidateParams) as RelatedProjectRow[];
 
   return projects
     .map((project) => {
@@ -922,9 +1073,12 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         score += sharedTags.length * 2;
       }
 
-      if (currentProfile.primaryCluster === profile.primaryCluster) {
-        const cluster = clusterLookup.get(profile.primaryCluster);
-        reasons.add(`同属 ${cluster?.label || profile.primaryCluster}`);
+      const currentPrimary = resolveClusterId(currentProfile.primaryCluster);
+      const projectPrimary = resolveClusterId(profile.primaryCluster);
+
+      if (currentPrimary === projectPrimary) {
+        const cluster = clusterLookup.get(projectPrimary);
+        reasons.add(`同属 ${cluster?.label || projectPrimary}`);
         score += 3;
       }
 
@@ -938,7 +1092,7 @@ export function getRelatedProjects(projectId: number, limit = 6) {
         || sharedProblemSignals.length > 0
         || sharedIntentTerms.length >= 2
         || (
-          currentProfile.primaryCluster === profile.primaryCluster
+          currentPrimary === projectPrimary
           && (sharedKeywords.length > 0 || sharedTopics.length > 0)
         );
 

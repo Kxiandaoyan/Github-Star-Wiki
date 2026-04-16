@@ -16,6 +16,7 @@ export interface SearchProjectRow {
   topics: string | null;
   synced_at: string | null;
   created_at: string;
+  updated_at: string | null;
   one_line_status: string;
   semantic_data: string | null;
   current_task_type: string | null;
@@ -167,6 +168,27 @@ function getSearchScore(project: SearchProjectRow, query: string) {
   return score;
 }
 
+function escapeFtsToken(token: string) {
+  return token.replace(/['"*()^]/g, '');
+}
+
+function buildFtsMatchIds(query: string): Set<number> {
+  const escaped = escapeFtsToken(query.trim());
+  if (!escaped) {
+    return new Set<number>();
+  }
+
+  try {
+    const rows = db.prepare(`
+      SELECT rowid FROM projects_fts WHERE projects_fts MATCH ?
+      LIMIT 2000
+    `).all(escaped) as Array<{ rowid: number }>;
+    return new Set(rows.map((r) => r.rowid));
+  } catch {
+    return new Set<number>();
+  }
+}
+
 function buildSearchWhere(options: {
   query?: string;
   language?: string;
@@ -180,29 +202,13 @@ function buildSearchWhere(options: {
     conditions.push(`
       (
         p.full_name LIKE ?
-        OR p.name LIKE ?
         OR p.description LIKE ?
-        OR p.chinese_intro LIKE ?
         OR p.one_line_intro LIKE ?
         OR p.topics LIKE ?
-        OR p.seo_title LIKE ?
-        OR p.seo_description LIKE ?
         OR p.project_type LIKE ?
-        OR pa.semantic_data LIKE ?
       )
     `);
-    params.push(
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm,
-      searchTerm
-    );
+    params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
   if (options.language) {
@@ -262,18 +268,34 @@ export function searchProjects(options: SearchProjectsOptions) {
   } = options;
 
   const offset = (page - 1) * pageSize;
-  const { conditions, params } = buildSearchWhere({ query, language, minStars });
-
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countSql = `
-    SELECT COUNT(*) as count
-    FROM projects p
-    LEFT JOIN project_analysis pa ON pa.project_id = p.id
-    ${whereClause}
-  `;
-  const countResult = db.prepare(countSql).get(...params) as { count: number };
 
   if (query) {
+    const ftsIds = buildFtsMatchIds(query);
+
+    const { conditions, params } = buildSearchWhere({ query, language, minStars });
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    let candidateIds: Set<number>;
+
+    if (ftsIds.size > 0) {
+      const likeIds = new Set<number>();
+      if (conditions.length > 0) {
+        const likeSql = `SELECT p.id FROM projects p WHERE ${conditions.join(' AND ')} LIMIT 2000`;
+        const likeRows = db.prepare(likeSql).all(...params) as Array<{ id: number }>;
+        for (const row of likeRows) likeIds.add(row.id);
+      }
+      candidateIds = new Set([...ftsIds, ...likeIds]);
+    } else {
+      const likeSql = `SELECT p.id FROM projects p ${whereClause} LIMIT 2000`;
+      const likeRows = db.prepare(likeSql).all(...params) as Array<{ id: number }>;
+      candidateIds = new Set(likeRows.map((r) => r.id));
+    }
+
+    if (candidateIds.size === 0) {
+      return { projects: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+
+    const placeholders = [...candidateIds].map(() => '?').join(',');
     const rankSql = `
       SELECT
         p.id,
@@ -290,18 +312,19 @@ export function searchProjects(options: SearchProjectsOptions) {
         p.topics,
         p.synced_at,
         p.created_at,
+        p.updated_at,
         p.one_line_status,
         pa.semantic_data,
         ${currentTaskTypeSql},
         ${currentTaskStatusSql}
       FROM projects p
       LEFT JOIN project_analysis pa ON pa.project_id = p.id
-      ${whereClause}
-      ORDER BY p.stars DESC, p.synced_at DESC
-      LIMIT 800
+      WHERE p.id IN (${placeholders})
+      ${language ? 'AND p.language = ?' : ''}
     `;
 
-    const ranked = (db.prepare(rankSql).all(...params) as SearchProjectRow[])
+    const rankParams = [...candidateIds, ...(language ? [language] : [])];
+    const ranked = (db.prepare(rankSql).all(...rankParams) as SearchProjectRow[])
       .map((project) => ({
         project,
         score: getSearchScore(project, query),
@@ -315,12 +338,18 @@ export function searchProjects(options: SearchProjectsOptions) {
 
     return {
       projects,
-      total: countResult.count,
+      total: ranked.length,
       page,
       pageSize,
-      totalPages: Math.ceil(countResult.count / pageSize),
+      totalPages: Math.ceil(ranked.length / pageSize),
     };
   }
+
+  const { conditions, params } = buildSearchWhere({ language, minStars });
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const countSql = `SELECT COUNT(*) as count FROM projects p ${whereClause}`;
+  const countResult = db.prepare(countSql).get(...params) as { count: number };
 
   const validSortFields = ['synced_at', 'stars', 'name', 'created_at'] as const;
   const sortField = validSortFields.includes(sortBy as typeof validSortFields[number]) ? sortBy : 'synced_at';
@@ -342,6 +371,7 @@ export function searchProjects(options: SearchProjectsOptions) {
       p.topics,
       p.synced_at,
       p.created_at,
+      p.updated_at,
       p.one_line_status,
       pa.semantic_data,
       ${currentTaskTypeSql},

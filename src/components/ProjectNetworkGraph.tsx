@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Network, Orbit, Search, Sparkles, Star } from 'lucide-react';
+import { ArrowRight, Network, Orbit, RotateCcw, Search, Sparkles, Star, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -688,6 +688,14 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
     };
   }, [hoveredClusterId, hoveredNodeId, layout.clusters, layout.nodes]);
 
+  const hasActiveFilter = Boolean(query.trim() || activeClusterId || selectedId);
+
+  const resetView = () => {
+    setQuery('');
+    setActiveClusterId(null);
+    setSelectedId(null);
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_380px]">
       <Card className="surface-panel overflow-hidden rounded-[2rem] shadow-none">
@@ -695,126 +703,147 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
           <div className="relative">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(15,98,254,0.18),transparent_22%),radial-gradient(circle_at_78%_18%,rgba(249,115,22,0.16),transparent_20%),radial-gradient(circle_at_50%_82%,rgba(16,185,129,0.12),transparent_22%)]" />
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Semantic Galaxy</p>
-                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-foreground">按用途组织的项目关系网络</h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-full">{graph.stats.nodeCount} 项目</Badge>
-                <Badge variant="secondary" className="rounded-full">{graph.stats.clusterCount} 语义簇</Badge>
-                <Badge variant="secondary" className="rounded-full">{graph.stats.linkCount} 关联边</Badge>
-              </div>
-            </div>
-
             <div className="border-b border-border/60 px-5 py-4">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="搜索项目名、用途、能力或主题词"
-                    className="surface-input h-11 rounded-full border-border/60 pl-10"
+                    placeholder="搜索项目名、用途、能力或主题词…"
+                    className="surface-input h-11 rounded-full border-border/60 pl-10 pr-10"
+                    aria-label="图谱内搜索"
                   />
+                  {query ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="清空搜索"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {displayScaleOptions.map((option) => (
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/40 p-0.5">
+                    {displayScaleOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setDisplayScale(option.id)}
+                        className={cn(
+                          'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                          displayScale === option.id
+                            ? 'bg-primary/12 text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                        title={`最多显示 ${option.limit} 个节点`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {hasActiveFilter ? (
                     <button
-                      key={option.id}
                       type="button"
-                      onClick={() => setDisplayScale(option.id)}
-                      className={cn(
-                        'rounded-full border px-3 py-2 text-xs transition-colors',
-                        displayScale === option.id
-                          ? 'border-primary/40 bg-primary/10 text-foreground'
-                          : 'border-border/60 text-muted-foreground hover:text-foreground'
-                      )}
+                      onClick={resetView}
+                      className="surface-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      title="清空搜索、选中和聚类筛选"
                     >
-                      {option.label}
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      重置视图
                     </button>
-                  ))}
+                  ) : null}
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {graph.clusters.map((cluster) => (
-                  <button
-                    key={cluster.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(null);
-                      setActiveClusterId((current) => current === cluster.id ? null : cluster.id);
-                    }}
-                    className={cn(
-                      'rounded-full border px-3 py-2 text-xs transition-colors',
-                      focusClusterId === cluster.id
-                        ? 'border-primary/40 bg-primary/10 text-foreground'
-                        : 'border-border/60 text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {cluster.label}
-                    <span className="ml-2 text-muted-foreground">{cluster.nodeCount}</span>
-                  </button>
-                ))}
+              <div className="mt-3.5 flex flex-wrap gap-1.5">
+                {graph.clusters.map((cluster) => {
+                  const isActive = focusClusterId === cluster.id;
+                  return (
+                    <button
+                      key={cluster.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(null);
+                        setActiveClusterId((current) => (current === cluster.id ? null : cluster.id));
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all',
+                        isActive
+                          ? 'border-primary/40 bg-primary/10 text-foreground shadow-sm'
+                          : 'border-border/60 text-muted-foreground hover:border-border hover:text-foreground'
+                      )}
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: cluster.color }}
+                      />
+                      {cluster.label}
+                      <span
+                        className={cn(
+                          'ml-0.5 rounded-full px-1.5 text-[10px]',
+                          isActive ? 'bg-primary/15 text-foreground' : 'bg-muted/60 text-muted-foreground'
+                        )}
+                      >
+                        {cluster.nodeCount}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div ref={containerRef} className="relative h-[74vh] min-h-[640px] overflow-hidden">
               <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
-              <div className="pointer-events-none absolute bottom-4 left-4 max-w-sm rounded-[1.4rem] border border-border/60 bg-background/60 px-4 py-3 text-sm leading-7 text-muted-foreground backdrop-blur-xl">
-                图谱优先按“用途和功能”聚类，而不是按编程语言分堆。选中项目后只展示真实关联边，避免大量项目同时出现时画面失控。
+
+              {matchedNodes.length === 0 ? (
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border/60 bg-background/80 px-6 py-4 text-center text-sm text-muted-foreground backdrop-blur-xl">
+                  <p className="text-foreground">没有匹配的项目</p>
+                  <p className="mt-1 text-xs">调整关键词或切换到其他聚类</p>
+                </div>
+              ) : null}
+
+              <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex max-w-sm flex-col gap-1 rounded-[1.2rem] border border-border/60 bg-background/70 px-4 py-3 text-xs leading-6 text-muted-foreground backdrop-blur-xl sm:right-auto">
+                <span className="text-foreground">
+                  共 {matchedNodes.length} 项匹配 · 展示 {visibleNodes.length}
+                </span>
+                <span>
+                  用"用途和功能"聚类，不按语言分堆。选中项目后只画真实关联边。
+                </span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-6">
-        <Card className="surface-panel rounded-[2rem] shadow-none">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Network className="h-4 w-4 text-primary" />
-              当前视图
-            </div>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-muted-foreground">
-              <p>当前画布展示 <span className="font-medium text-foreground">{visibleNodes.length}</span> / {matchedNodes.length} 个项目。</p>
-              <p>默认会均匀抽样各个语义簇，避免大簇把整个图谱挤成一团。</p>
-              <p>点语义簇看领域，点项目看细节；输入搜索词后会优先保留命中的项目。</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {activeCluster ? (
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Orbit className="h-4 w-4 text-primary" />
-                当前聚焦语义簇
+      <div className="space-y-4">
+        {selectedNode ? (
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Selected · 选中项目
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="取消选中"
+                  title="取消选中"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <div className="mt-4">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: activeCluster.color }} />
-                  <h3 className="text-lg font-semibold text-foreground">{activeCluster.label}</h3>
-                  <Badge variant="secondary" className="rounded-full">{activeCluster.nodeCount}</Badge>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{activeCluster.description}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <Card className="surface-panel rounded-[2rem] shadow-none">
-          <CardContent className="p-6">
-            {selectedNode ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Selected Project</p>
-                    <h3 className="mt-2 text-xl font-semibold text-foreground">{selectedNode.fullName}</h3>
-                  </div>
-                  <Badge variant="secondary" className="rounded-full">
+                  <h3 className="min-w-0 break-all text-lg font-semibold leading-7 text-foreground">
+                    {selectedNode.fullName}
+                  </h3>
+                  <Badge variant="secondary" className="shrink-0 rounded-full">
                     <Star className="mr-1 h-3.5 w-3.5" />
                     {formatStars(selectedNode.stars)}
                   </Badge>
@@ -824,75 +853,185 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
                   {selectedNode.oneLineIntro || selectedNode.description || '这个项目还没有生成足够清晰的一句话简介。'}
                 </p>
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full">{relatedNodes.length} 个直接关联</Badge>
+                <div className="flex flex-wrap gap-1.5">
                   {selectedNode.semanticTags.map((tag) => {
                     const cluster = clusterLookup.get(tag);
-                    if (!cluster) {
-                      return null;
-                    }
-
+                    if (!cluster) return null;
                     return (
-                      <Badge key={tag} variant="secondary" className="rounded-full">
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-foreground"
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: cluster.color }}
+                        />
                         {cluster.label}
-                      </Badge>
+                      </span>
                     );
                   })}
                   {selectedNode.topics.slice(0, 4).map((topic) => (
-                    <Badge key={topic} variant="outline" className="rounded-full">
+                    <Badge key={topic} variant="outline" className="rounded-full text-xs">
                       {topic}
                     </Badge>
                   ))}
                 </div>
 
-                <Button asChild className="w-full rounded-xl bg-amber-400 text-amber-950 hover:bg-amber-300">
+                <Button
+                  asChild
+                  className="w-full rounded-xl bg-amber-400 text-amber-950 hover:bg-amber-300 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
+                >
                   <Link href={`/projects/${selectedNode.id}`}>
                     进入详情页
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Selected Project</p>
-                <p className="text-sm leading-7 text-muted-foreground">
-                  先点一个项目节点。右侧会显示一句话介绍、用途标签，以及它在这张关系网里的直接关联项目。
+            </CardContent>
+          </Card>
+        ) : activeCluster ? (
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Focused · 聚焦聚类
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveClusterId(null)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="取消聚焦"
+                  title="取消聚焦"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: activeCluster.color }}
+                />
+                <h3 className="text-lg font-semibold text-foreground">{activeCluster.label}</h3>
+                <Badge variant="secondary" className="rounded-full">
+                  {activeCluster.nodeCount}
+                </Badge>
+              </div>
+              <p className="mt-3 text-sm leading-7 text-muted-foreground">{activeCluster.description}</p>
+              <Button
+                asChild
+                variant="outline"
+                className="mt-4 w-full rounded-xl"
+              >
+                <Link href={`/collections/${activeCluster.id}`}>
+                  查看 {activeCluster.label} 专题页
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Network className="h-4 w-4 text-primary" />
+                开始探索
+              </div>
+              <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                点任意<span className="font-medium text-foreground">语义簇球体</span>看某个领域全貌，
+                点<span className="font-medium text-foreground">项目节点</span>看细节。
+                当前画布展示 <span className="font-medium text-foreground">{visibleNodes.length}</span>
+                {' '}/ {matchedNodes.length} 个项目。
+              </p>
+              <div className="mt-4 rounded-xl border border-dashed border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+                提示：拖动搜索框或调整"聚焦 / 平衡 / 全部"可以改变密度。
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {selectedNode ? (
-          <Card className="surface-panel rounded-[2rem] shadow-none">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-5">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="h-4 w-4 text-primary" />
-                关联项目
+                语义关联项目
+                <span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                  {relatedNodes.length}
+                </span>
               </div>
-              <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-                {relatedNodes.length > 0 ? relatedNodes.map((entry) => (
-                  <button
-                    key={entry.node.id}
-                    type="button"
-                    onClick={() => setSelectedId(entry.node.id)}
-                    className={cn('surface-chip w-full rounded-[1.4rem] px-4 py-4 text-left transition-colors', 'hover:border-primary/30')}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-6 text-foreground">{entry.node.fullName}</p>
-                        <p className="mt-2 text-sm leading-7 text-muted-foreground">{entry.link.reason.join(' / ')}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{formatStars(entry.node.stars)}</span>
-                    </div>
-                  </button>
-                )) : (
-                  <p className="text-sm leading-7 text-muted-foreground">当前没有足够强的功能关联项目可展示。</p>
+              <div className="max-h-[30rem] space-y-2 overflow-y-auto pr-1">
+                {relatedNodes.length > 0 ? (
+                  relatedNodes.map((entry) => {
+                    const cluster = clusterLookup.get(entry.node.cluster);
+                    return (
+                      <button
+                        key={entry.node.id}
+                        type="button"
+                        onClick={() => setSelectedId(entry.node.id)}
+                        className="surface-chip w-full rounded-xl px-3.5 py-3 text-left transition-colors hover:border-primary/30"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-1.5 text-sm font-medium leading-5 text-foreground">
+                              {cluster ? (
+                                <span
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: cluster.color }}
+                                  aria-hidden="true"
+                                />
+                              ) : null}
+                              <span className="truncate">{entry.node.fullName}</span>
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                              {entry.link.reason.join(' · ')}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatStars(entry.node.stars)}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm leading-7 text-muted-foreground">
+                    这个项目没有足够强的功能关联。可能是信息不足，可以在后台补充 Wiki 后再看。
+                  </p>
                 )}
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        ) : (
+          <Card className="surface-panel rounded-[1.8rem] shadow-none">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Orbit className="h-4 w-4 text-primary" />
+                图例
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {graph.clusters.map((cluster) => (
+                  <button
+                    key={cluster.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(null);
+                      setActiveClusterId((current) => (current === cluster.id ? null : cluster.id));
+                    }}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/40"
+                    title={cluster.description}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: cluster.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-foreground">{cluster.label}</span>
+                    <span className="shrink-0 text-muted-foreground">{cluster.nodeCount}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

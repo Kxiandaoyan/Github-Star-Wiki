@@ -70,15 +70,6 @@ export default async function SpecialCollectionPage({
     },
     {
       '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: '自动专题', item: `${SITE_URL}/collections` },
-        { '@type': 'ListItem', position: 3, name: title, item: `${SITE_URL}/collections/${result.bucket.slug}` },
-      ],
-    },
-    {
-      '@context': 'https://schema.org',
       '@type': 'ItemList',
       itemListElement: result.projects.slice(0, 20).map((project, index) => ({
         '@type': 'ListItem',
@@ -97,10 +88,16 @@ export default async function SpecialCollectionPage({
       projects={result.projects}
       canonicalPath={`/collections/${result.bucket.slug}`}
       jsonLd={jsonLd}
+      kind="自动专题"
+      parentHref="/collections"
+      parentLabel="全部专题"
+      breadcrumbs={[
+        { label: '自动专题', href: '/collections' },
+        { label: result.bucket.name },
+      ]}
       relatedLinks={[
         { href: '/collections', label: '全部自动专题' },
-        { href: '/languages', label: '全部编程语言' },
-        { href: '/topics', label: '全部技术标签' },
+        { href: '/use-cases', label: '按使用场景浏览' },
         ...relatedLinks,
       ]}
     />

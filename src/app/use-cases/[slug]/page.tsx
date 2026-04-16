@@ -80,10 +80,16 @@ export default async function UseCaseCollectionPage({
       projects={result.projects}
       canonicalPath={result.bucket.href}
       jsonLd={jsonLd}
+      kind="使用场景"
+      parentHref="/use-cases"
+      parentLabel="全部场景"
+      breadcrumbs={[
+        { label: '使用场景', href: '/use-cases' },
+        { label: result.bucket.name },
+      ]}
       relatedLinks={[
         { href: '/use-cases', label: '全部使用场景' },
-        { href: '/types', label: '全部项目类型' },
-        { href: '/collections', label: '全部自动专题' },
+        { href: '/collections', label: '按主题浏览' },
       ]}
     />
   );

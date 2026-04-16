@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { CommandPalette } from '@/components/CommandPalette';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -48,6 +49,12 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  alternates: {
+    canonical: '/',
+    types: {
+      'application/rss+xml': '/feed.xml',
+    },
+  },
 };
 
 export default function RootLayout({
@@ -58,7 +65,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="paper-noise antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <CommandPalette />
+        </ThemeProvider>
       </body>
     </html>
   );
