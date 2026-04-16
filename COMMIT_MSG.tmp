@@ -1,0 +1,5 @@
+Fix hydration mismatch in StarActivityGrid and ProjectCard
+
+- StarActivityGrid: add suppressHydrationWarning on the conditional wrapper, overflow-x-auto, grid container and each cell. This prevents mismatch from Chinese browser extensions (e.g. Immersive Translate) or DOM modifications, and from rolling deployments where server/client bundles might be out of sync briefly.
+- ProjectCard: add suppressHydrationWarning on health badge span; the badge uses Date.now() which produces slightly different values between SSR and client hydration and can flip badge state at the exact 18/36 month threshold.
+- toLocaleString: force 'en-US' locale to avoid different thousands separators on servers/clients with different default locales.

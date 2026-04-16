@@ -53,9 +53,15 @@ export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGr
         </div>
 
         {recordedCount > 0 ? (
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="overflow-x-auto">
-              <div className="grid min-w-max grid-flow-col grid-rows-7 gap-1">
+          <div
+            className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+            suppressHydrationWarning
+          >
+            <div className="overflow-x-auto" suppressHydrationWarning>
+              <div
+                className="grid min-w-max grid-flow-col grid-rows-7 gap-1"
+                suppressHydrationWarning
+              >
                 {cells.map((cell) => {
                   const level = getLevel(cell.count, maxCount);
 
@@ -72,6 +78,7 @@ export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGr
                       )}
                       title={`${formatDate(cell.date)} · ${cell.count} 次 Star`}
                       aria-label={`${cell.date}: ${cell.count} starred repositories`}
+                      suppressHydrationWarning
                     />
                   );
                 })}

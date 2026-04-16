@@ -324,7 +324,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span className="surface-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5">
                   <Star className="h-4 w-4 text-amber-500" />
-                  <span className="font-medium text-foreground">{project.stars.toLocaleString()}</span>
+                  <span className="font-medium text-foreground" suppressHydrationWarning>{project.stars.toLocaleString('en-US')}</span>
                 </span>
 
                 {project.language ? (

@@ -161,6 +161,7 @@ export function ProjectCard({
                   healthBadge.className
                 )}
                 title={`最后更新 ${updated_at?.slice(0, 10)}`}
+                suppressHydrationWarning
               >
                 <Clock className="h-3 w-3" />
                 {healthBadge.label}

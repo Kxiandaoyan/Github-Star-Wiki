@@ -75,7 +75,7 @@ export function CollectionPage({
             ) : null}
             {totalStars > 0 ? (
               <span className="surface-chip rounded-full px-3 py-1 text-xs text-foreground">
-                合计 ★ {totalStars.toLocaleString()}
+                合计 ★ {totalStars.toLocaleString('en-US')}
               </span>
             ) : null}
           </div>
