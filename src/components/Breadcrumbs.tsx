@@ -33,10 +33,6 @@ export function Breadcrumbs({ items, className, withHome = true }: BreadcrumbsPr
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
       <nav
         aria-label="面包屑导航"
         className={cn(
@@ -75,6 +71,10 @@ export function Breadcrumbs({ items, className, withHome = true }: BreadcrumbsPr
           );
         })}
       </nav>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     </>
   );
 }

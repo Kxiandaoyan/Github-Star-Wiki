@@ -43,7 +43,7 @@ export function CollectionPage({
   const completedCount = projects.filter((p) => p.one_line_status === 'completed').length;
 
   return (
-    <div id="top" className="min-h-screen">
+    <>
       {jsonLd.map((item, index) => (
         <script
           key={`${canonicalPath}-${index}`}
@@ -51,7 +51,7 @@ export function CollectionPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }}
         />
       ))}
-
+      <div id="top" className="min-h-screen">
       <SiteHeader
         breadcrumbs={breadcrumbs}
         backHref={parentHref || '/'}
@@ -141,6 +141,7 @@ export function CollectionPage({
       </main>
 
       <SiteFooter />
-    </div>
+      </div>
+    </>
   );
 }

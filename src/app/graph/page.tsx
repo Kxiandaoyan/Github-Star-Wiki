@@ -86,12 +86,12 @@ export default async function GraphPage({ searchParams }: GraphPageProps) {
   };
 
   return (
-    <div id="top" className="min-h-screen">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
-
+      <div id="top" className="min-h-screen">
       <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(15,98,254,0.18),transparent_24%),radial-gradient(circle_at_78%_14%,rgba(249,115,22,0.18),transparent_24%),radial-gradient(circle_at_52%_82%,rgba(16,185,129,0.12),transparent_22%)] dark:bg-[radial-gradient(circle_at_18%_16%,rgba(143,210,255,0.16),transparent_22%),radial-gradient(circle_at_78%_14%,rgba(251,146,60,0.14),transparent_20%),radial-gradient(circle_at_52%_82%,rgba(52,211,153,0.08),transparent_18%)]" />
         <div className="absolute left-[8%] top-[8%] h-64 w-64 rounded-full bg-sky-300/10 blur-3xl dark:bg-sky-400/10" />
@@ -238,6 +238,7 @@ export default async function GraphPage({ searchParams }: GraphPageProps) {
       </main>
 
       <SiteFooter />
-    </div>
+      </div>
+    </>
   );
 }

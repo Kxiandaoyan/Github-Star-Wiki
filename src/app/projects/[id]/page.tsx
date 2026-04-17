@@ -275,7 +275,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     }
     : null;
   return (
-    <div id="top" className="min-h-screen">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(projectJsonLd) }}
@@ -286,7 +286,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       ) : null}
-
+      <div id="top" className="min-h-screen">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute left-[10%] top-20 h-52 w-52 rounded-full bg-sky-400/14 blur-3xl dark:bg-sky-400/10" />
         <div className="absolute right-[10%] top-14 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl dark:bg-amber-300/8" />
@@ -681,7 +681,8 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </div>
       </main>
       <SiteFooter />
-    </div>
+      </div>
+    </>
   );
 }
 

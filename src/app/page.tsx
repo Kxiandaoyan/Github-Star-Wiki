@@ -278,7 +278,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   };
 
   return (
-    <div className="min-h-screen">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
@@ -287,6 +287,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeItemListJsonLd) }}
       />
+      <div className="min-h-screen">
       <BackgroundParticles />
 
       <div className="hero-wash pointer-events-none fixed inset-0 -z-20 overflow-hidden">
@@ -619,7 +620,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </span>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
 
