@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowUpRight, Clock, LoaderCircle, Star } from 'lucide-react';
+import { AddToCompareButton } from '@/components/CompareUtils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -95,81 +96,100 @@ export function ProjectCard({
   const healthBadge = getHealthBadge(updated_at);
 
   return (
-    <Link href={`/projects/${id}`} className="focus-ring block h-full">
-      <Card
-        className={cn(
-          'surface-panel card-hover group h-full rounded-[1.6rem] shadow-none',
-          className
-        )}
+    <Card
+      className={cn(
+        'surface-panel card-hover group relative h-full rounded-[1.6rem] shadow-none',
+        className
+      )}
+    >
+      {/* Overlay link fills the card but sits below interactive children */}
+      <Link
+        href={`/projects/${id}`}
+        className="focus-ring absolute inset-0 z-0 rounded-[1.6rem]"
+        aria-label={`查看 ${full_name}`}
       >
-        <CardHeader className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <Badge variant="secondary" className="rounded-full text-[11px] uppercase tracking-[0.2em]">
-                {owner}
-              </Badge>
-              <CardTitle className="mt-3 truncate text-xl transition-colors group-hover:text-primary">
-                {name}
-              </CardTitle>
-            </div>
-            <div className="surface-chip rounded-full p-2 text-muted-foreground transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary">
-              <ArrowUpRight className="h-4 w-4" />
-            </div>
+        <span className="sr-only">查看 {full_name}</span>
+      </Link>
+
+      {/* 右上角浮现的对比按钮，z-10 浮于 overlay 之上 */}
+      <div className="pointer-events-none absolute right-3 top-3 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="pointer-events-auto">
+          <AddToCompareButton
+            id={id}
+            fullName={full_name}
+            intro={one_line_intro || description || ''}
+            variant="icon"
+          />
+        </div>
+      </div>
+
+      <CardHeader className="relative z-0 space-y-4 pointer-events-none">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Badge variant="secondary" className="rounded-full text-[11px] uppercase tracking-[0.2em]">
+              {owner}
+            </Badge>
+            <CardTitle className="mt-3 truncate text-xl transition-colors group-hover:text-primary">
+              {name}
+            </CardTitle>
           </div>
-        </CardHeader>
+          <div className="surface-chip rounded-full p-2 text-muted-foreground transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary">
+            <ArrowUpRight className="h-4 w-4" />
+          </div>
+        </div>
+      </CardHeader>
 
-        <CardContent className="min-h-[110px]">
-          {isGenerated ? (
-            <p className="line-clamp-3 text-sm leading-7 text-foreground/80">{one_line_intro}</p>
-          ) : hasTask && taskLabel ? (
-            <div
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm',
-                isProcessing
-                  ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                  : 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-              )}
-            >
-              <LoaderCircle className={cn('h-4 w-4', isProcessing ? 'animate-spin' : '')} />
-              {taskLabel}
-            </div>
-          ) : (
-            <p className="line-clamp-3 text-sm leading-7 text-muted-foreground">
-              {description || '暂无项目描述，等待生成更完整的中文介绍。'}
-            </p>
-          )}
-        </CardContent>
+      <CardContent className="relative z-0 min-h-[110px] pointer-events-none">
+        {isGenerated ? (
+          <p className="line-clamp-3 text-sm leading-7 text-foreground/80">{one_line_intro}</p>
+        ) : hasTask && taskLabel ? (
+          <div
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm',
+              isProcessing
+                ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+            )}
+          >
+            <LoaderCircle className={cn('h-4 w-4', isProcessing ? 'animate-spin' : '')} />
+            {taskLabel}
+          </div>
+        ) : (
+          <p className="line-clamp-3 text-sm leading-7 text-muted-foreground">
+            {description || '暂无项目描述，等待生成更完整的中文介绍。'}
+          </p>
+        )}
+      </CardContent>
 
-        <CardFooter className="flex items-center gap-4">
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Star className="h-4 w-4 text-amber-500" />
-              <span className="font-medium text-foreground">{formatStars(stars)}</span>
+      <CardFooter className="relative z-0 flex items-center gap-4 pointer-events-none">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Star className="h-4 w-4 text-amber-500" />
+            <span className="font-medium text-foreground">{formatStars(stars)}</span>
+          </span>
+
+          {language ? (
+            <span className="inline-flex items-center gap-2">
+              <span className={cn('h-2.5 w-2.5 rounded-full', languageColor)} />
+              {language}
             </span>
+          ) : null}
 
-            {language ? (
-              <span className="inline-flex items-center gap-2">
-                <span className={cn('h-2.5 w-2.5 rounded-full', languageColor)} />
-                {language}
-              </span>
-            ) : null}
-
-            {healthBadge ? (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]',
-                  healthBadge.className
-                )}
-                title={`最后更新 ${updated_at?.slice(0, 10)}`}
-                suppressHydrationWarning
-              >
-                <Clock className="h-3 w-3" />
-                {healthBadge.label}
-              </span>
-            ) : null}
-          </div>
-        </CardFooter>
-      </Card>
-    </Link>
+          {healthBadge ? (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]',
+                healthBadge.className
+              )}
+              title={`最后更新 ${updated_at?.slice(0, 10)}`}
+              suppressHydrationWarning
+            >
+              <Clock className="h-3 w-3" />
+              {healthBadge.label}
+            </span>
+          ) : null}
+        </div>
+      </CardFooter>
+    </Card>
   );
 }

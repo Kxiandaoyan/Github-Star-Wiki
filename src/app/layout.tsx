@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { CommandPalette } from '@/components/CommandPalette';
+import { CompareTray } from '@/components/CompareUtils';
 import { BackToTop, ReadingProgressBar } from '@/components/ReadingUtils';
 import { ShortcutsHelp } from '@/components/ShortcutsHelp';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -120,6 +121,7 @@ export default function RootLayout({
           {children}
           <BackToTop />
           <CommandPalette />
+          <CompareTray />
           <ShortcutsHelp />
         </ThemeProvider>
         <script

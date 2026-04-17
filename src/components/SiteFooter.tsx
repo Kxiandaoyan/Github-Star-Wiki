@@ -9,6 +9,7 @@ const footerLinks = [
       { label: '项目关系网图谱', href: '/graph' },
       { label: '自动专题', href: '/collections' },
       { label: '使用场景', href: '/use-cases' },
+      { label: '年度回顾', href: '/years' },
     ],
   },
   {

@@ -1,4 +1,5 @@
-import { CalendarDays } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, CalendarDays } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -47,8 +48,17 @@ export function StarActivityGrid({ cells, recordedCount, weeks }: StarActivityGr
               最近 {weeks} 周的 Star 活动
             </h3>
           </div>
-          <div className="text-sm text-muted-foreground">
-            区间内记录了 {totalInRange} 次 Star，累计已存储 {recordedCount} 条时间数据
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            <div className="text-sm text-muted-foreground">
+              区间内记录了 {totalInRange} 次 Star，累计已存储 {recordedCount} 条时间数据
+            </div>
+            <Link
+              href="/years"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
+            >
+              按年度查看回顾
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
         </div>
 

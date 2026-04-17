@@ -27,6 +27,7 @@ import {
   parseTopics,
   slugifyTaxonomyValue,
 } from '@/lib/taxonomy';
+import { AddToCompareButton } from '@/components/CompareUtils';
 import { BookmarkButton, RecentViewedTracker } from '@/components/RecentViewed';
 import { ShareButton, StickyTOC } from '@/components/ProjectDetailUtils';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -366,6 +367,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <ShareButton url={`/projects/${project.id}`} title={project.full_name} />
                 <BookmarkButton
+                  id={project.id}
+                  fullName={project.full_name}
+                  intro={project.one_line_intro || project.description || ''}
+                />
+                <AddToCompareButton
                   id={project.id}
                   fullName={project.full_name}
                   intro={project.one_line_intro || project.description || ''}

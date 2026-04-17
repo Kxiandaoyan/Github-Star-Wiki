@@ -66,6 +66,7 @@ export function SiteHeader({
             <NavLink href="/graph">图谱</NavLink>
             <NavLink href="/collections">专题</NavLink>
             <NavLink href="/use-cases">场景</NavLink>
+            <NavLink href="/years">年度</NavLink>
             <NavLink href="/languages">语言</NavLink>
           </nav>
           <ThemeToggle />
@@ -113,6 +114,9 @@ function MobileNavMenu() {
         </Link>
         <Link className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted" href="/use-cases">
           场景
+        </Link>
+        <Link className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted" href="/years">
+          年度回顾
         </Link>
         <Link className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted" href="/languages">
           语言
