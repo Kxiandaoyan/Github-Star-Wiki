@@ -112,7 +112,7 @@ export default function RootLayout({
       <body className="paper-noise antialiased">
         <a
           href="#main-content"
-          className="fixed left-4 top-4 z-[200] -translate-y-20 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground transition-transform focus:translate-y-0"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2.5 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
         >
           跳到主要内容
         </a>

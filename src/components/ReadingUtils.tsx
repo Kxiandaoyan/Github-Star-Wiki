@@ -50,7 +50,7 @@ export function BackToTop() {
     <button
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      className="fixed bottom-6 right-6 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/90 text-muted-foreground shadow-lg backdrop-blur-md transition-colors hover:text-foreground md:bottom-6 md:right-24"
+      className="fixed bottom-24 right-5 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/90 text-muted-foreground shadow-lg backdrop-blur-md transition-all hover:-translate-y-0.5 hover:text-foreground md:bottom-24 md:right-6"
       aria-label="返回顶部"
       title="返回顶部"
     >

@@ -80,11 +80,11 @@ export function AddToCompareButton({
         onClick={toggle}
         disabled={full && !added}
         className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors',
+          'inline-flex h-7 w-7 items-center justify-center rounded-full transition-all',
           mounted && added
-            ? 'border-primary/50 bg-primary/10 text-primary'
-            : 'border-border/60 text-muted-foreground hover:text-foreground',
-          full && !added && 'cursor-not-allowed opacity-50'
+            ? 'bg-primary/15 text-primary'
+            : 'text-muted-foreground/60 opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100 group-hover:opacity-100',
+          full && !added && 'cursor-not-allowed opacity-30'
         )}
         aria-label={mounted && added ? '从对比中移除' : '加入对比'}
         title={
@@ -96,7 +96,7 @@ export function AddToCompareButton({
         }
         suppressHydrationWarning
       >
-        {mounted && added ? <Check className="h-4 w-4" /> : <GitCompare className="h-4 w-4" />}
+        {mounted && added ? <Check className="h-3.5 w-3.5" /> : <GitCompare className="h-3.5 w-3.5" />}
       </button>
     );
   }
