@@ -4,6 +4,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { CompareTray } from '@/components/CompareUtils';
 import { BackToTop, ReadingProgressBar } from '@/components/ReadingUtils';
 import { ShortcutsHelp } from '@/components/ShortcutsHelp';
+import { SkipToMain } from '@/components/SkipToMain';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -110,9 +111,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://github.com" />
       </head>
       <body className="paper-noise antialiased">
-        <a href="#main-content" className="skip-to-main">
-          跳到主要内容
-        </a>
+        <SkipToMain />
         <ThemeProvider>
           <ReadingProgressBar />
           {children}

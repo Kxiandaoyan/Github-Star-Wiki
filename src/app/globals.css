@@ -140,39 +140,6 @@ body {
     linear-gradient(180deg, #0b1020 0%, #111827 100%);
 }
 
-/* === Skip-to-main-content（无障碍跳过链接） === */
-.skip-to-main {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
-.skip-to-main:focus,
-.skip-to-main:focus-visible {
-  position: fixed;
-  left: 1rem;
-  top: 1rem;
-  width: auto;
-  height: auto;
-  clip: auto;
-  z-index: 200;
-  padding: 0.625rem 1rem;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border-radius: 0.625rem;
-  box-shadow: var(--elev-2);
-  font-size: 0.875rem;
-  font-weight: 500;
-  outline: 2px solid color-mix(in srgb, var(--ring) 80%, transparent);
-  outline-offset: 2px;
-  text-decoration: none;
-}
-
 /* === D2: 顶部彩虹装饰条（加强版，肉眼可见） === */
 body::after {
   content: "";
