@@ -11,7 +11,7 @@ import {
   Orbit,
   Sparkles,
 } from 'lucide-react';
-import { ProjectNetworkGraph } from '@/components/ProjectNetworkGraph';
+import { ProjectNetworkGraphLoader as ProjectNetworkGraph } from '@/components/ProjectNetworkGraphLoader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { buildProjectGraph } from '@/lib/project-network';

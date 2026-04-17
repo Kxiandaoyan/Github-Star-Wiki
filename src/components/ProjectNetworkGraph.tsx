@@ -474,6 +474,19 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
 
     let frame = 0;
     let raf = 0;
+    let idleFrames = 0;
+    let lastInteractionMs = performance.now();
+
+    const markInteraction = () => {
+      lastInteractionMs = performance.now();
+      idleFrames = 0;
+    };
+
+    const onInteraction = () => markInteraction();
+    canvas.addEventListener('mousemove', onInteraction, { passive: true });
+    canvas.addEventListener('mouseleave', onInteraction, { passive: true });
+    canvas.addEventListener('click', onInteraction, { passive: true });
+    window.addEventListener('scroll', onInteraction, { passive: true });
 
     const draw = () => {
       frame += 1;
@@ -589,11 +602,30 @@ export function ProjectNetworkGraph({ graph, initialProjectId = null }: GraphPag
         }
       });
 
+      const idle = performance.now() - lastInteractionMs > 1500;
+      if (idle) {
+        idleFrames += 1;
+        // 空闲时降频到每 3 帧绘制一次，完全稳定后停止
+        if (idleFrames > 12) {
+          raf = window.setTimeout(draw, 250) as unknown as number;
+          return;
+        }
+      }
+
       raf = window.requestAnimationFrame(draw);
     };
 
     raf = window.requestAnimationFrame(draw);
-    return () => window.cancelAnimationFrame(raf);
+    return () => {
+      if (raf) {
+        window.cancelAnimationFrame(raf);
+        clearTimeout(raf);
+      }
+      canvas.removeEventListener('mousemove', onInteraction);
+      canvas.removeEventListener('mouseleave', onInteraction);
+      canvas.removeEventListener('click', onInteraction);
+      window.removeEventListener('scroll', onInteraction);
+    };
   }, [
     clusterLookup,
     focusClusterId,

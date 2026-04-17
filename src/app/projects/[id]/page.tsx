@@ -6,6 +6,7 @@ import {
   BookOpen,
   BrainCircuit,
   CalendarDays,
+  Clock,
   ExternalLink,
   Github,
   HelpCircle,
@@ -26,6 +27,8 @@ import {
   parseTopics,
   slugifyTaxonomyValue,
 } from '@/lib/taxonomy';
+import { BookmarkButton, RecentViewedTracker } from '@/components/RecentViewed';
+import { ShareButton, StickyTOC } from '@/components/ProjectDetailUtils';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { cn } from '@/lib/utils';
@@ -299,7 +302,15 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         backLabel="返回列表"
       />
 
-      <main className="mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
+      <RecentViewedTracker
+        id={project.id}
+        fullName={project.full_name}
+        intro={project.one_line_intro || project.description || ''}
+        stars={project.stars}
+        language={project.language}
+      />
+
+      <main id="main-content" className="mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6">
         <section className="surface-panel rounded-[2rem] p-7 md:p-9">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 flex-1">
@@ -321,7 +332,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 {description}
               </p>
 
-              <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="surface-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5">
                   <Star className="h-4 w-4 text-amber-500" />
                   <span className="font-medium text-foreground" suppressHydrationWarning>{project.stars.toLocaleString('en-US')}</span>
@@ -343,6 +354,22 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     Star 于 {formatDate(project.starred_at)}
                   </span>
                 ) : null}
+
+                {project.updated_at ? (
+                  <span className="surface-chip inline-flex items-center gap-2 rounded-full px-3 py-1.5" title={`仓库最后更新于 ${project.updated_at}`}>
+                    <Clock className="h-4 w-4" />
+                    {formatDate(project.updated_at)} 更新
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <ShareButton url={`/projects/${project.id}`} title={project.full_name} />
+                <BookmarkButton
+                  id={project.id}
+                  fullName={project.full_name}
+                  intro={project.one_line_intro || project.description || ''}
+                />
               </div>
             </div>
 
@@ -469,6 +496,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           </div>
 
           <aside className="space-y-6">
+            {wikiDocs.length > 0 ? (
+              <StickyTOC
+                items={wikiDocs.map((doc, index) => ({
+                  id: `wiki-${doc.id}`,
+                  title: `${index + 1}. ${doc.title}`,
+                }))}
+              />
+            ) : null}
             <section className="surface-panel rounded-[1.8rem] p-6">
               <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
                 <Link2 className="h-4 w-4 text-primary" />

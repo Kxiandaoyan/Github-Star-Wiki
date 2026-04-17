@@ -14,6 +14,7 @@ import { BackgroundParticles } from '@/components/BackgroundParticles';
 import { HeroCodeBackdrop } from '@/components/HeroCodeBackdrop';
 import { LanguageFilter } from '@/components/LanguageFilter';
 import { ProjectCard } from '@/components/ProjectCard';
+import { RecentViewed } from '@/components/RecentViewed';
 import { SearchBar } from '@/components/SearchBar';
 import { StarActivityGrid } from '@/components/StarActivityGrid';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -251,20 +252,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       )
     : [];
 
-  const websiteJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'Star Wiki',
-    url: SITE_URL,
-    description: '整理你的 GitHub Star 项目，支持中文搜索、语言筛选、AI 简介与 Wiki 卡片浏览。',
-    inLanguage: 'zh-CN',
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${SITE_URL}/?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
-    },
-  };
-
   const homeItemListJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -279,10 +266,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeItemListJsonLd) }}
@@ -320,7 +303,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-10 md:px-6">
+      <main id="main-content" className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-10 md:px-6">
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_320px]">
           <Card className="surface-panel relative overflow-hidden rounded-[2rem] shadow-none">
             <HeroCodeBackdrop />
@@ -420,6 +403,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </section>
 
         <StarActivityGrid cells={activity} recordedCount={recordedStarCount} weeks={ACTIVITY_WEEKS} />
+
+        <RecentViewed />
 
         {forgottenProjects.length > 0 ? (
           <section className="space-y-4">

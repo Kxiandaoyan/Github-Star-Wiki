@@ -1,3 +1,4 @@
+import { getCached } from './cache';
 import db from './db';
 import type {
   RepositoryAnalysisResult,
@@ -144,6 +145,10 @@ function buildLinkReason(reasonSet: Set<string>) {
 }
 
 export function buildProjectGraph(limit = 1600): ProjectGraphData {
+  return getCached(`graph:${limit}`, 2 * 60_000, () => buildProjectGraphUncached(limit));
+}
+
+function buildProjectGraphUncached(limit = 1600): ProjectGraphData {
   const rows = db.prepare(`
     SELECT
       p.id,
