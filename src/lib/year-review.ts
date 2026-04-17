@@ -33,11 +33,19 @@ interface YearProjectRow extends YearProjectListItem {
   deep_read_data: string | null;
 }
 
+export interface MonthlyBucket {
+  count: number;
+  dominantClusterId: string | null;
+  dominantClusterLabel: string | null;
+  dominantClusterColor: string | null;
+}
+
 export interface YearReview {
   year: number;
   total: number;
   totalStars: number;
   monthly: number[];
+  monthlyBuckets: MonthlyBucket[];
   peakMonthLabel: string;
   peakMonthCount: number;
   busiestDay: { date: string; count: number; label: string } | null;
@@ -74,6 +82,54 @@ function computeMonthlyBreakdown(rows: YearProjectRow[]) {
     if (index !== null) monthly[index] += 1;
   });
   return monthly;
+}
+
+function computeMonthlyBuckets(rows: YearProjectRow[]): MonthlyBucket[] {
+  const lookup = getSemanticClusterLookup();
+  // 每月的 cluster 计数
+  const perMonthClusterCount: Array<Map<string, number>> = Array.from(
+    { length: 12 },
+    () => new Map<string, number>()
+  );
+  const monthTotal = Array(12).fill(0) as number[];
+
+  rows.forEach((row) => {
+    const monthIndex = monthIndexOf(row.starred_at);
+    if (monthIndex === null) return;
+    monthTotal[monthIndex] += 1;
+
+    const profile = parseJson<ProjectSemanticProfile>(row.semantic_data)
+      || deriveProjectSemanticProfile({
+        projectName: row.full_name,
+        description: row.description,
+        projectType: row.project_type,
+        topics: parseTopics(row.topics),
+        oneLineIntro: row.one_line_intro,
+        analysis: parseJson<RepositoryAnalysisResult>(row.analysis_data),
+        deepRead: parseJson<RepositoryDeepReadResult>(row.deep_read_data),
+      });
+    const clusterId = resolveClusterId(profile.primaryCluster);
+    const counter = perMonthClusterCount[monthIndex];
+    counter.set(clusterId, (counter.get(clusterId) || 0) + 1);
+  });
+
+  return perMonthClusterCount.map((counter, index) => {
+    let dominantId: string | null = null;
+    let dominantCount = 0;
+    counter.forEach((count, id) => {
+      if (count > dominantCount) {
+        dominantCount = count;
+        dominantId = id;
+      }
+    });
+    const cluster = dominantId ? lookup.get(dominantId) : null;
+    return {
+      count: monthTotal[index],
+      dominantClusterId: dominantId,
+      dominantClusterLabel: cluster?.label ?? null,
+      dominantClusterColor: cluster?.color ?? null,
+    };
+  });
 }
 
 function computeBusiestDay(rows: YearProjectRow[]) {
@@ -208,6 +264,7 @@ export function buildYearReview(year: number): YearReview {
     const rows = fetchYearRows(year);
     const total = rows.length;
     const monthly = computeMonthlyBreakdown(rows);
+    const monthlyBuckets = computeMonthlyBuckets(rows);
     const peakIndex = monthly.reduce(
       (bestIdx, value, idx, arr) => (value > arr[bestIdx] ? idx : bestIdx),
       0
@@ -243,6 +300,7 @@ export function buildYearReview(year: number): YearReview {
       total,
       totalStars: rows.reduce((sum, row) => sum + (row.stars || 0), 0),
       monthly,
+      monthlyBuckets,
       peakMonthLabel: MONTH_LABELS[peakIndex],
       peakMonthCount: monthly[peakIndex],
       busiestDay,

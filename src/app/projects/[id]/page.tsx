@@ -32,6 +32,7 @@ import { BookmarkButton, RecentViewedTracker } from '@/components/RecentViewed';
 import { ShareButton, StickyTOC } from '@/components/ProjectDetailUtils';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
+import { getLanguageColor } from '@/lib/language-colors';
 import { cn } from '@/lib/utils';
 
 interface WikiDocument {
@@ -50,20 +51,6 @@ export const dynamic = 'force-dynamic';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-const languageColors: Record<string, string> = {
-  TypeScript: 'bg-blue-500',
-  JavaScript: 'bg-amber-400',
-  Python: 'bg-emerald-500',
-  Rust: 'bg-orange-500',
-  Go: 'bg-cyan-500',
-  Java: 'bg-red-500',
-  'C++': 'bg-pink-500',
-  Ruby: 'bg-rose-500',
-  PHP: 'bg-violet-500',
-  Swift: 'bg-orange-400',
-  Kotlin: 'bg-fuchsia-500',
-  default: 'bg-slate-400',
-};
 
 const projectTypeLabelMap: Record<string, string> = {
   app: '应用项目',
@@ -219,7 +206,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     .prepare('SELECT * FROM wiki_documents WHERE project_id = ? ORDER BY sort_order')
     .all(id) as WikiDocument[];
 
-  const languageColor = languageColors[project.language || ''] || languageColors.default;
+  const languageColor = getLanguageColor(project.language).dot;
   const mindMap = parseMindMap(project.mind_map);
   const faqItems = parseFaqItems(project.faq_json);
   const projectTopics = parseTopics(project.topics);

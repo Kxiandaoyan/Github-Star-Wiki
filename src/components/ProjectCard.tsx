@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Clock, LoaderCircle, Star } from 'lucide-react';
 import { AddToCompareButton } from '@/components/CompareUtils';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { getLanguageColor } from '@/lib/language-colors';
 import { cn } from '@/lib/utils';
 
 interface ProjectCardProps {
@@ -32,21 +33,6 @@ function getHealthBadge(updatedAt: string | null | undefined) {
   }
   return null;
 }
-
-const languageColors: Record<string, string> = {
-  TypeScript: 'bg-blue-500',
-  JavaScript: 'bg-amber-400',
-  Python: 'bg-emerald-500',
-  Rust: 'bg-orange-500',
-  Go: 'bg-cyan-500',
-  Java: 'bg-red-500',
-  'C++': 'bg-pink-500',
-  Ruby: 'bg-rose-500',
-  PHP: 'bg-violet-500',
-  Swift: 'bg-orange-400',
-  Kotlin: 'bg-fuchsia-500',
-  default: 'bg-slate-400',
-};
 
 function formatStars(stars: number) {
   if (stars >= 1000) {
@@ -85,7 +71,7 @@ export function ProjectCard({
   className,
 }: ProjectCardProps) {
   const [owner, name] = full_name.split('/');
-  const languageColor = languageColors[language || ''] || languageColors.default;
+  const languageColor = getLanguageColor(language).dot;
   const isGenerated = one_line_status === 'completed' && !!one_line_intro;
   const hasTask = Boolean(current_task_type && current_task_status);
   const isProcessing = current_task_status === 'processing';

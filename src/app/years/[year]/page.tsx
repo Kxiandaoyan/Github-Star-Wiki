@@ -239,7 +239,7 @@ export default async function YearReviewPage({ params }: YearPageProps) {
                   按月统计当年的 Star 分布。高亮的那根是年度峰值。
                 </p>
                 <div className="mt-7">
-                  <MonthlyBarChart data={review.monthly} />
+                  <MonthlyBarChart buckets={review.monthlyBuckets} />
                 </div>
               </section>
 

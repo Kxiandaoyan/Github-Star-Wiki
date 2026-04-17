@@ -17,7 +17,40 @@
   --destructive-foreground: #fff1f2;
   --border: rgba(17, 24, 39, 0.08);
   --ring: rgba(15, 98, 254, 0.24);
-  --radius: 1.15rem;
+
+  /* === Design Tokens === */
+  /* Radius - 收敛到 4 档 */
+  --radius-sm: 0.625rem;     /* chips, small items */
+  --radius-md: 0.875rem;     /* buttons, inputs */
+  --radius-lg: 1.25rem;      /* cards */
+  --radius-xl: 1.75rem;      /* large cards */
+  --radius-2xl: 2rem;        /* hero panels */
+  --radius: var(--radius-lg);
+
+  /* Elevation - 4 档分层阴影 */
+  --elev-0: 0 0 0 rgba(0, 0, 0, 0);
+  --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --elev-2: 0 4px 12px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+  --elev-3: 0 16px 40px rgba(15, 23, 42, 0.12), 0 24px 60px rgba(15, 23, 42, 0.1);
+
+  /* Semantic Colors */
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --success-strong: #059669;
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --warning-strong: #d97706;
+  --info: #0ea5e9;
+  --info-soft: rgba(14, 165, 233, 0.12);
+  --info-strong: #0284c7;
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dark {
@@ -37,6 +70,20 @@
   --destructive-foreground: #450a0a;
   --border: rgba(148, 163, 184, 0.14);
   --ring: rgba(143, 210, 255, 0.2);
+
+  --elev-1: 0 1px 2px rgba(2, 6, 23, 0.3), 0 2px 8px rgba(2, 6, 23, 0.2);
+  --elev-2: 0 4px 12px rgba(2, 6, 23, 0.4), 0 8px 24px rgba(2, 6, 23, 0.28);
+  --elev-3: 0 16px 40px rgba(2, 6, 23, 0.48), 0 24px 60px rgba(2, 6, 23, 0.4);
+
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.14);
+  --success-strong: #10b981;
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --warning-strong: #f59e0b;
+  --info: #38bdf8;
+  --info-soft: rgba(56, 189, 248, 0.14);
+  --info-strong: #0ea5e9;
 }
 
 @theme inline {
@@ -56,6 +103,9 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 4px);
   --radius-sm: calc(var(--radius) - 8px);
@@ -90,18 +140,42 @@ body {
     linear-gradient(180deg, #0b1020 0%, #111827 100%);
 }
 
+/* === D2: 顶部彩虹装饰条 === */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    var(--primary) 0%,
+    #f59e0b 35%,
+    #10b981 70%,
+    var(--primary) 100%);
+  background-size: 200% 100%;
+  opacity: 0.9;
+  z-index: 100;
+  pointer-events: none;
+  animation: rainbow-drift 14s linear infinite;
+}
+
+@keyframes rainbow-drift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 a,
 button,
 input {
   transition-property: color, background-color, border-color, opacity, transform, box-shadow;
-  transition-duration: 180ms;
-  transition-timing-function: ease;
+  transition-duration: var(--dur-base);
+  transition-timing-function: var(--ease-out-quint);
 }
 
 ::selection {
   background: rgba(249, 115, 22, 0.24);
 }
 
+/* === D5: 滚动条美化 === */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -112,8 +186,15 @@ input {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.45);
+  background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+  background-clip: content-box;
 }
 
 .hero-wash {
@@ -131,11 +212,7 @@ input {
   border: 1px solid var(--border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.05);
-}
-
-.dark .surface-panel {
-  box-shadow: 0 24px 56px rgba(2, 6, 23, 0.22);
+  box-shadow: var(--elev-1);
 }
 
 .surface-chip {
@@ -165,20 +242,36 @@ input {
   border-color: color-mix(in srgb, #f97316 22%, var(--border));
 }
 
+/* === C1: 按钮物理感 === */
+button,
+[role="button"] {
+  transform: translateZ(0);
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+  transition-duration: var(--dur-fast);
+}
+
 .card-hover {
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  transition-property: transform, box-shadow, border-color;
+  transition-duration: var(--dur-base);
+  transition-timing-function: var(--ease-out-quint);
+  will-change: transform;
 }
 
 .card-hover:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: color-mix(in srgb, #f97316 26%, var(--border));
-  box-shadow: 0 18px 40px -12px rgba(249, 115, 22, 0.18);
+  box-shadow: var(--elev-2);
 }
 
 .dark .card-hover:hover {
-  box-shadow: 0 20px 42px -14px rgba(251, 146, 60, 0.26);
+  box-shadow: var(--elev-2);
 }
 
+/* === 焦点环（统一） === */
 .focus-ring {
   outline: none;
 }
@@ -186,6 +279,93 @@ input {
 .focus-ring:focus-visible {
   box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
   border-radius: inherit;
+}
+
+/* === B3: 搜索框 gradient ring === */
+.search-ring {
+  position: relative;
+  transition: box-shadow var(--dur-base) var(--ease-out-quint);
+}
+
+.search-ring:focus-within {
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 3px transparent,
+    0 0 0 5px color-mix(in srgb, #f97316 40%, transparent);
+}
+
+/* === D3: 入场动画 === */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-enter {
+  animation: fadeSlideUp var(--dur-slow) var(--ease-out-expo) both;
+}
+
+.animate-enter-delay-1 { animation-delay: 60ms; }
+.animate-enter-delay-2 { animation-delay: 120ms; }
+.animate-enter-delay-3 { animation-delay: 200ms; }
+.animate-enter-delay-4 { animation-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-enter,
+  .animate-enter-delay-1,
+  .animate-enter-delay-2,
+  .animate-enter-delay-3,
+  .animate-enter-delay-4 {
+    animation: none;
+  }
+  body::after {
+    animation: none;
+  }
+}
+
+/* === B1: Aurora 极光背景 === */
+@keyframes aurora-drift-1 {
+  0%, 100% { transform: translate(-10%, -10%) rotate(0deg); }
+  50% { transform: translate(5%, 10%) rotate(180deg); }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate(10%, 10%) rotate(0deg); }
+  50% { transform: translate(-10%, -5%) rotate(-180deg); }
+}
+
+.aurora-layer {
+  position: absolute;
+  inset: -20%;
+  filter: blur(72px);
+  opacity: 0.55;
+  animation: aurora-drift-1 22s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.aurora-layer-2 {
+  animation: aurora-drift-2 28s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+.dark .aurora-layer {
+  opacity: 0.35;
+}
+
+.grid-backdrop {
+  background-image:
+    radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .grid-backdrop {
+  background-image:
+    radial-gradient(rgba(226, 232, 240, 0.08) 1px, transparent 1px);
 }
 
 .hero-code-item {
@@ -296,10 +476,17 @@ input {
   background: rgba(15, 23, 42, 0.55);
 }
 
+/* === C5: 正文链接 "ink bleed" 下划线 === */
 .prose a {
   color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
+  background: linear-gradient(currentColor, currentColor) bottom / 100% 1px no-repeat;
+  padding-bottom: 1px;
+  transition: background-size var(--dur-base) var(--ease-out-quint);
+}
+
+.prose a:hover {
+  background-size: 100% 2px;
 }
 
 .paper-noise::before {
@@ -319,4 +506,25 @@ input {
     radial-gradient(rgba(226, 232, 240, 0.06) 0.6px, transparent 0.6px);
   opacity: 0.16;
   mix-blend-mode: soft-light;
+}
+
+/* === D6: View Transitions === */
+@supports (view-transition-name: root) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(root) {
+    z-index: 1;
+  }
+  ::view-transition-new(root) {
+    z-index: 2;
+  }
+  .dark::view-transition-old(root) {
+    z-index: 2;
+  }
+  .dark::view-transition-new(root) {
+    z-index: 1;
+  }
 }

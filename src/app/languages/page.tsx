@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Code2 } from 'lucide-react';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
+import { getLanguageColor } from '@/lib/language-colors';
 import { getLanguageBuckets } from '@/lib/taxonomy';
 
 export const dynamic = 'force-dynamic';
@@ -20,24 +21,6 @@ export const metadata: Metadata = {
     description: '浏览站内按编程语言聚合的 GitHub Star 项目页面。',
     url: `${SITE_URL}/languages`,
   },
-};
-
-const languageIcons: Record<string, string> = {
-  TypeScript: 'bg-blue-500',
-  JavaScript: 'bg-amber-400',
-  Python: 'bg-emerald-500',
-  Rust: 'bg-orange-500',
-  Go: 'bg-cyan-500',
-  Java: 'bg-red-500',
-  'C++': 'bg-pink-500',
-  Ruby: 'bg-rose-500',
-  PHP: 'bg-violet-500',
-  Swift: 'bg-orange-400',
-  Kotlin: 'bg-fuchsia-500',
-  Shell: 'bg-slate-500',
-  HTML: 'bg-orange-400',
-  Vue: 'bg-emerald-500',
-  C: 'bg-slate-400',
 };
 
 export default function LanguagesIndexPage() {
@@ -69,7 +52,7 @@ export default function LanguagesIndexPage() {
 
         <section className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {languages.map((language) => {
-            const dot = languageIcons[language.name] || 'bg-slate-400';
+            const dot = getLanguageColor(language.name).dot;
             return (
               <Link
                 key={language.slug}
