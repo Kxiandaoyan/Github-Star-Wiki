@@ -110,10 +110,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://github.com" />
       </head>
       <body className="paper-noise antialiased">
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2.5 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
-        >
+        <a href="#main-content" className="skip-to-main">
           跳到主要内容
         </a>
         <ThemeProvider>
